@@ -57,35 +57,77 @@ async function fetchComments(videoId: string, apiKey: string): Promise<any[]> {
   return comments;
 }
 
-// Simple sentiment analysis using keyword matching
-function analyzeSentiment(text: string): "positive" | "negative" | "neutral" {
+// AI-powered sentiment analysis using Lovable AI Gateway
+async function analyzeSentimentBatch(
+  comments: { author: string; text: string; likeCount: number; publishedAt: string }[],
+  apiKey: string
+): Promise<("positive" | "negative" | "neutral")[]> {
+  const BATCH_SIZE = 50;
+  const allSentiments: ("positive" | "negative" | "neutral")[] = [];
+
+  for (let i = 0; i < comments.length; i += BATCH_SIZE) {
+    const batch = comments.slice(i, i + BATCH_SIZE);
+    const numberedComments = batch.map((c, idx) => `${idx + 1}. ${c.text.slice(0, 200)}`).join("\n");
+
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash-lite",
+        messages: [
+          {
+            role: "system",
+            content: `You are a sentiment classifier. For each numbered YouTube comment, respond with ONLY the sentiment label. Output exactly one word per line: "positive", "negative", or "neutral". No numbering, no extra text. The number of output lines MUST equal the number of input comments.`
+          },
+          {
+            role: "user",
+            content: `Classify the sentiment of each comment:\n\n${numberedComments}`
+          }
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      console.error(`AI Gateway error [${response.status}], falling back to keyword analysis for this batch`);
+      // Fallback to simple keyword analysis
+      for (const c of batch) {
+        allSentiments.push(keywordSentiment(c.text));
+      }
+      continue;
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content?.trim() || "";
+    const lines = content.split("\n").map((l: string) => l.trim().toLowerCase()).filter((l: string) => l);
+
+    for (let j = 0; j < batch.length; j++) {
+      const line = lines[j] || "";
+      if (line.includes("positive")) {
+        allSentiments.push("positive");
+      } else if (line.includes("negative")) {
+        allSentiments.push("negative");
+      } else {
+        allSentiments.push("neutral");
+      }
+    }
+  }
+
+  return allSentiments;
+}
+
+// Fallback keyword-based sentiment
+function keywordSentiment(text: string): "positive" | "negative" | "neutral" {
   const lower = text.toLowerCase();
-  const positiveWords = [
-    "love", "great", "awesome", "amazing", "excellent", "fantastic", "wonderful",
-    "best", "good", "perfect", "beautiful", "brilliant", "outstanding", "incredible",
-    "thank", "thanks", "helpful", "useful", "nice", "cool", "wow", "superb",
-    "happy", "enjoy", "enjoyed", "favorite", "favourite", "recommend", "impressive",
-    "❤", "👍", "🔥", "😍", "🎉", "💯", "👏", "✨", "😊", "🙌",
-  ];
-  const negativeWords = [
-    "hate", "terrible", "awful", "worst", "bad", "horrible", "boring",
-    "waste", "trash", "garbage", "stupid", "dumb", "annoying", "disappointing",
-    "disappointed", "sucks", "poor", "ugly", "useless", "wrong", "fake",
-    "dislike", "clickbait", "scam", "cringe", "overrated", "mediocre",
-    "👎", "😡", "🤮", "💩", "😤", "😠",
-  ];
-
-  let posScore = 0;
-  let negScore = 0;
-  for (const w of positiveWords) {
-    if (lower.includes(w)) posScore++;
-  }
-  for (const w of negativeWords) {
-    if (lower.includes(w)) negScore++;
-  }
-
-  if (posScore > negScore) return "positive";
-  if (negScore > posScore) return "negative";
+  const pos = ["love", "great", "awesome", "amazing", "excellent", "fantastic", "best", "good", "perfect", "thank", "thanks", "helpful", "nice", "cool", "wow", "happy", "enjoy", "❤", "👍", "🔥", "😍", "💯"];
+  const neg = ["hate", "terrible", "awful", "worst", "bad", "horrible", "boring", "waste", "trash", "stupid", "annoying", "disappointing", "sucks", "useless", "fake", "cringe", "👎", "😡", "🤮", "💩"];
+  let p = 0, n = 0;
+  for (const w of pos) if (lower.includes(w)) p++;
+  for (const w of neg) if (lower.includes(w)) n++;
+  if (p > n) return "positive";
+  if (n > p) return "negative";
   return "neutral";
 }
 
@@ -110,14 +152,12 @@ function extractTopics(comments: { text: string; sentiment: string }[]): { topic
     "video", "watch", "watching", "watched", "youtube", "channel", "subscribe",
   ]);
 
-  // Extract bigrams and significant words
   const phraseMap = new Map<string, { count: number; comments: Set<string> }>();
 
   for (const c of comments) {
     const words = c.text.toLowerCase().replace(/[^a-z0-9\s]/g, "").split(/\s+/).filter(w => w.length > 2 && !stopWords.has(w));
     const seen = new Set<string>();
 
-    // Bigrams
     for (let i = 0; i < words.length - 1; i++) {
       const bigram = `${words[i]} ${words[i + 1]}`;
       if (!seen.has(bigram)) {
@@ -129,7 +169,6 @@ function extractTopics(comments: { text: string; sentiment: string }[]): { topic
       }
     }
 
-    // Unigrams
     for (const w of words) {
       if (!seen.has(w)) {
         seen.add(w);
@@ -141,19 +180,16 @@ function extractTopics(comments: { text: string; sentiment: string }[]): { topic
     }
   }
 
-  // Prefer bigrams, then unigrams, filter by min count
   const minCount = Math.max(2, Math.floor(comments.length * 0.02));
   const sorted = [...phraseMap.entries()]
     .filter(([_, v]) => v.count >= minCount)
     .sort((a, b) => {
-      // Prefer bigrams
       const aIsBigram = a[0].includes(" ") ? 1 : 0;
       const bIsBigram = b[0].includes(" ") ? 1 : 0;
       if (aIsBigram !== bIsBigram) return bIsBigram - aIsBigram;
       return b[1].count - a[1].count;
     });
 
-  // Deduplicate: remove unigrams that are part of selected bigrams
   const selected: { topic: string; count: number; comments: string[] }[] = [];
   const usedWords = new Set<string>();
 
@@ -185,6 +221,8 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
     const body = await req.json();
     const parsed = BodySchema.safeParse(body);
@@ -226,15 +264,18 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Analyze sentiment
-    const analyzed = comments.map(c => ({
-      ...c,
-      sentiment: analyzeSentiment(c.text),
-    }));
+    // Analyze sentiment - use AI if available, otherwise fallback to keywords
+    let analyzed;
+    if (LOVABLE_API_KEY) {
+      const sentiments = await analyzeSentimentBatch(comments, LOVABLE_API_KEY);
+      analyzed = comments.map((c, i) => ({ ...c, sentiment: sentiments[i] }));
+    } else {
+      analyzed = comments.map(c => ({ ...c, sentiment: keywordSentiment(c.text) }));
+    }
 
     const sentimentCounts = { positive: 0, negative: 0, neutral: 0 };
     for (const c of analyzed) {
-      sentimentCounts[c.sentiment]++;
+      sentimentCounts[c.sentiment as "positive" | "negative" | "neutral"]++;
     }
 
     // Extract topics
