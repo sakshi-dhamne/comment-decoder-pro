@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, Plus, X, GitCompareArrows, Clock, Trash2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 const HISTORY_KEY = "yt-search-history";
 const LAST_URL_KEY = "yt-last-url";
@@ -29,6 +30,7 @@ interface MultiUrlInputProps {
 }
 
 const MultiUrlInput = ({ onSubmitSingle, onSubmitMultiple, isLoading }: MultiUrlInputProps) => {
+  const { toast } = useToast();
   const [urls, setUrls] = useState<string[]>(() => {
     const last = localStorage.getItem(LAST_URL_KEY);
     return [last || ""];
@@ -53,6 +55,16 @@ const MultiUrlInput = ({ onSubmitSingle, onSubmitMultiple, isLoading }: MultiUrl
     e.preventDefault();
     const validUrls = urls.map((u) => u.trim()).filter(Boolean);
     if (validUrls.length === 0) return;
+
+    // Check for duplicate URLs in compare mode
+    if (validUrls.length > 1) {
+      const unique = new Set(validUrls);
+      if (unique.size !== validUrls.length) {
+        toast({ title: "Duplicate URLs", description: "Please use different URLs for comparison.", variant: "destructive" });
+        return;
+      }
+    }
+
     validUrls.forEach(saveToHistory);
     setHistory(getHistory());
     if (validUrls.length === 1) {

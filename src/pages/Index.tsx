@@ -285,19 +285,21 @@ const Index = () => {
           )}
         </AnimatePresence>
 
-        {/* Empty State + Report History */}
+        {/* Empty State */}
         {!result && !comparisonResults && !isLoading && !error && (
-          <div className="space-y-6">
-            <div className="text-center py-12 space-y-3">
-              <Youtube className="w-12 h-12 text-muted-foreground/30 mx-auto" />
-              <p className="text-muted-foreground">Paste a YouTube URL above to get started</p>
-              <p className="text-xs text-muted-foreground">Or compare multiple videos side-by-side</p>
-            </div>
-            <ReportHistory
-              onLoad={(data) => setResult(data)}
-              refreshKey={reportRefreshKey}
-            />
+          <div className="text-center py-12 space-y-3">
+            <Youtube className="w-12 h-12 text-muted-foreground/30 mx-auto" />
+            <p className="text-muted-foreground">Paste a YouTube URL above to get started</p>
+            <p className="text-xs text-muted-foreground">Or compare multiple videos side-by-side</p>
           </div>
+        )}
+
+        {/* Report History - always visible when not loading */}
+        {!isLoading && (
+          <ReportHistory
+            onLoad={(data) => { setResult(data); setComparisonResults(null); setError(null); }}
+            refreshKey={reportRefreshKey}
+          />
         )}
       </main>
     </div>
