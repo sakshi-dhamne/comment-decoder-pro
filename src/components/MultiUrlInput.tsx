@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, Plus, X, GitCompareArrows, Clock, Trash2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 const HISTORY_KEY = "yt-search-history";
 const LAST_URL_KEY = "yt-last-url";
