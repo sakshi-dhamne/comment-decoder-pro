@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Download, MessageSquare, TrendingUp, BarChart3, Youtube, Share2, Sparkles, Tag, GitCompareArrows } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { saveReport } from "@/lib/saveReport";
 import MultiUrlInput from "@/components/MultiUrlInput";
 import SentimentChart from "@/components/SentimentChart";
 import TopicList from "@/components/TopicList";
@@ -14,6 +15,7 @@ import AIInsights from "@/components/AIInsights";
 import CategoryBreakdown from "@/components/CategoryBreakdown";
 import KeywordCloud from "@/components/KeywordCloud";
 import ComparisonView from "@/components/ComparisonView";
+import ReportHistory from "@/components/ReportHistory";
 import { downloadJSON, downloadCSV } from "@/lib/downloadReport";
 import { useToast } from "@/hooks/use-toast";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -24,6 +26,7 @@ const Index = () => {
   const [comparisonResults, setComparisonResults] = useState<(AnalysisResult | { error: string; videoUrl: string })[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [reportRefreshKey, setReportRefreshKey] = useState(0);
   const { toast } = useToast();
 
   const handleAnalyzeSingle = async (url: string) => {
@@ -39,6 +42,8 @@ const Index = () => {
       if (fnError) throw new Error(fnError.message);
       if (data?.error) throw new Error(data.error);
       setResult(data);
+      // Save to DB in background
+      saveReport(data, url).then(() => setReportRefreshKey((k) => k + 1));
     } catch (e: any) {
       const msg = e?.message || "Failed to analyze comments";
       setError(msg);
