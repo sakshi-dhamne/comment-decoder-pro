@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Download, MessageSquare, TrendingUp, BarChart3, Youtube, Share2, Sparkles, Tag, GitCompareArrows } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { saveReport } from "@/lib/saveReport";
 import MultiUrlInput from "@/components/MultiUrlInput";
 import SentimentChart from "@/components/SentimentChart";
 import TopicList from "@/components/TopicList";
@@ -14,6 +15,7 @@ import AIInsights from "@/components/AIInsights";
 import CategoryBreakdown from "@/components/CategoryBreakdown";
 import KeywordCloud from "@/components/KeywordCloud";
 import ComparisonView from "@/components/ComparisonView";
+import ReportHistory from "@/components/ReportHistory";
 import { downloadJSON, downloadCSV } from "@/lib/downloadReport";
 import { useToast } from "@/hooks/use-toast";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -24,6 +26,7 @@ const Index = () => {
   const [comparisonResults, setComparisonResults] = useState<(AnalysisResult | { error: string; videoUrl: string })[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [reportRefreshKey, setReportRefreshKey] = useState(0);
   const { toast } = useToast();
 
   const handleAnalyzeSingle = async (url: string) => {
@@ -39,6 +42,8 @@ const Index = () => {
       if (fnError) throw new Error(fnError.message);
       if (data?.error) throw new Error(data.error);
       setResult(data);
+      // Save to DB in background
+      saveReport(data, url).then(() => setReportRefreshKey((k) => k + 1));
     } catch (e: any) {
       const msg = e?.message || "Failed to analyze comments";
       setError(msg);
@@ -280,12 +285,18 @@ const Index = () => {
           )}
         </AnimatePresence>
 
-        {/* Empty State */}
+        {/* Empty State + Report History */}
         {!result && !comparisonResults && !isLoading && !error && (
-          <div className="text-center py-20 space-y-3">
-            <Youtube className="w-12 h-12 text-muted-foreground/30 mx-auto" />
-            <p className="text-muted-foreground">Paste a YouTube URL above to get started</p>
-            <p className="text-xs text-muted-foreground">Or compare multiple videos side-by-side</p>
+          <div className="space-y-6">
+            <div className="text-center py-12 space-y-3">
+              <Youtube className="w-12 h-12 text-muted-foreground/30 mx-auto" />
+              <p className="text-muted-foreground">Paste a YouTube URL above to get started</p>
+              <p className="text-xs text-muted-foreground">Or compare multiple videos side-by-side</p>
+            </div>
+            <ReportHistory
+              onLoad={(data) => setResult(data)}
+              refreshKey={reportRefreshKey}
+            />
           </div>
         )}
       </main>
