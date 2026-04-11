@@ -16,6 +16,7 @@ import KeywordCloud from "@/components/KeywordCloud";
 import ComparisonView from "@/components/ComparisonView";
 import { downloadJSON, downloadCSV } from "@/lib/downloadReport";
 import { useToast } from "@/hooks/use-toast";
+import ThemeToggle from "@/components/ThemeToggle";
 import type { AnalysisResult } from "@/types/analysis";
 
 const Index = () => {
@@ -96,10 +97,11 @@ const Index = () => {
             <div className="p-2 rounded-lg bg-primary/10">
               <Youtube className="w-6 h-6 text-primary" />
             </div>
-            <div>
+            <div className="flex-1">
               <h1 className="text-2xl font-bold text-foreground tracking-tight">Comment Insights</h1>
               <p className="text-sm text-muted-foreground">AI-powered sentiment, categorization & trend analysis</p>
             </div>
+            <ThemeToggle />
           </div>
           <MultiUrlInput onSubmitSingle={handleAnalyzeSingle} onSubmitMultiple={handleAnalyzeMultiple} isLoading={isLoading} />
         </div>
