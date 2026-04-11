@@ -30,6 +30,7 @@ interface MultiUrlInputProps {
 }
 
 const MultiUrlInput = ({ onSubmitSingle, onSubmitMultiple, isLoading }: MultiUrlInputProps) => {
+  const { toast } = useToast();
   const [urls, setUrls] = useState<string[]>(() => {
     const last = localStorage.getItem(LAST_URL_KEY);
     return [last || ""];
