@@ -32,7 +32,7 @@ const ReportHistory = ({ onLoad, refreshKey }: ReportHistoryProps) => {
       .select("*")
       .order("created_at", { ascending: false })
       .limit(10);
-    setReports((data as Report[]) || []);
+    setReports((data as unknown as Report[]) || []);
     setLoading(false);
   };
 
