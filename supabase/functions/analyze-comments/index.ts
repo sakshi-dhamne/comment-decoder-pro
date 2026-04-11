@@ -329,19 +329,16 @@ async function analyzeVideo(videoUrl: string, ytKey: string, aiKey: string | und
   const rawComments = await fetchComments(videoId, ytKey);
   if (rawComments.length === 0) throw new Error("No comments found. Comments may be disabled.");
 
-  // Sentiment
+  // Sentiment + Categories in parallel
   let sentiments: ("positive" | "negative" | "neutral")[];
-  if (aiKey) {
-    sentiments = await analyzeSentimentBatch(rawComments, aiKey);
-  } else {
-    sentiments = rawComments.map(c => keywordSentiment(c.text));
-  }
-
-  // Categories
   let categories: ("praise" | "complaint" | "question" | "suggestion" | "spam" | "other")[];
   if (aiKey) {
-    categories = await categorizeComments(rawComments, aiKey);
+    [sentiments, categories] = await Promise.all([
+      analyzeSentimentBatch(rawComments, aiKey),
+      categorizeComments(rawComments, aiKey),
+    ]);
   } else {
+    sentiments = rawComments.map(c => keywordSentiment(c.text));
     categories = rawComments.map(c => {
       const t = c.text.toLowerCase();
       if (t.includes("?")) return "question";
@@ -431,15 +428,16 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Multi-video comparison
-    const results = [];
-    for (const url of urls) {
-      try {
-        results.push(await analyzeVideo(url, YOUTUBE_API_KEY, LOVABLE_API_KEY));
-      } catch (e) {
-        results.push({ error: e instanceof Error ? e.message : "Failed", videoUrl: url });
-      }
-    }
+    // Multi-video comparison (parallel)
+    const results = await Promise.all(
+      urls.map(async (url) => {
+        try {
+          return await analyzeVideo(url, YOUTUBE_API_KEY, LOVABLE_API_KEY);
+        } catch (e) {
+          return { error: e instanceof Error ? e.message : "Failed", videoUrl: url };
+        }
+      })
+    );
 
     return new Response(JSON.stringify({ comparison: true, results }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
