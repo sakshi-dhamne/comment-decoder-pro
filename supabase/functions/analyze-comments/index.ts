@@ -3,6 +3,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const BodySchema = z.object({
   videoUrl: z.string().min(1).max(500).optional(),
@@ -423,6 +424,26 @@ Deno.serve(async (req) => {
 
     if (urls.length === 1) {
       const result = await analyzeVideo(urls[0], YOUTUBE_API_KEY, LOVABLE_API_KEY);
+
+      // Save report server-side using service role
+      try {
+        const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+        const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+        const sb = createClient(supabaseUrl, serviceKey);
+        const vidMatch = urls[0].match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([a-zA-Z0-9_-]{11})/);
+        const videoId = vidMatch?.[1] || "unknown";
+        await sb.from("analysis_reports").insert({
+          video_id: videoId,
+          video_url: urls[0],
+          video_title: result.video?.title || null,
+          channel_title: result.video?.channelTitle || null,
+          thumbnail: result.video?.thumbnail || null,
+          result: result as any,
+        });
+      } catch (e) {
+        console.error("Failed to save report:", e);
+      }
+
       return new Response(JSON.stringify(result), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
