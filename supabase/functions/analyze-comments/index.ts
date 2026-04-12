@@ -72,9 +72,12 @@ async function analyzeSentimentBatch(
   apiKey: string
 ): Promise<("positive" | "negative" | "neutral")[]> {
   const BATCH_SIZE = 50;
-  const all: ("positive" | "negative" | "neutral")[] = [];
+  const batches: { text: string }[][] = [];
   for (let i = 0; i < comments.length; i += BATCH_SIZE) {
-    const batch = comments.slice(i, i + BATCH_SIZE);
+    batches.push(comments.slice(i, i + BATCH_SIZE));
+  }
+
+  const batchResults = await Promise.all(batches.map(async (batch) => {
     const numbered = batch.map((c, idx) => `${idx + 1}. ${c.text.slice(0, 200)}`).join("\n");
     try {
       const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -91,15 +94,16 @@ async function analyzeSentimentBatch(
       if (!response.ok) throw new Error("AI error");
       const data = await response.json();
       const lines = (data.choices?.[0]?.message?.content?.trim() || "").split("\n").map((l: string) => l.trim().toLowerCase());
-      for (let j = 0; j < batch.length; j++) {
+      return batch.map((_, j) => {
         const line = lines[j] || "";
-        all.push(line.includes("positive") ? "positive" : line.includes("negative") ? "negative" : "neutral");
-      }
+        return (line.includes("positive") ? "positive" : line.includes("negative") ? "negative" : "neutral") as "positive" | "negative" | "neutral";
+      });
     } catch {
-      for (const c of batch) all.push(keywordSentiment(c.text));
+      return batch.map(c => keywordSentiment(c.text));
     }
-  }
-  return all;
+  }));
+
+  return batchResults.flat();
 }
 
 function keywordSentiment(text: string): "positive" | "negative" | "neutral" {
@@ -118,9 +122,12 @@ async function categorizeComments(
   apiKey: string
 ): Promise<("praise" | "complaint" | "question" | "suggestion" | "spam" | "other")[]> {
   const BATCH_SIZE = 50;
-  const all: ("praise" | "complaint" | "question" | "suggestion" | "spam" | "other")[] = [];
+  const batches: { text: string }[][] = [];
   for (let i = 0; i < comments.length; i += BATCH_SIZE) {
-    const batch = comments.slice(i, i + BATCH_SIZE);
+    batches.push(comments.slice(i, i + BATCH_SIZE));
+  }
+
+  const batchResults = await Promise.all(batches.map(async (batch) => {
     const numbered = batch.map((c, idx) => `${idx + 1}. ${c.text.slice(0, 200)}`).join("\n");
     try {
       const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -138,24 +145,23 @@ async function categorizeComments(
       const data = await response.json();
       const lines = (data.choices?.[0]?.message?.content?.trim() || "").split("\n").map((l: string) => l.trim().toLowerCase());
       const valid = ["praise", "complaint", "question", "suggestion", "spam", "other"] as const;
-      for (let j = 0; j < batch.length; j++) {
+      return batch.map((_, j) => {
         const line = lines[j] || "";
-        const match = valid.find(v => line.includes(v));
-        all.push(match || "other");
-      }
+        return (valid.find(v => line.includes(v)) || "other") as "praise" | "complaint" | "question" | "suggestion" | "spam" | "other";
+      });
     } catch {
-      // Fallback: simple heuristic
-      for (const c of batch) {
+      return batch.map(c => {
         const t = c.text.toLowerCase();
-        if (t.includes("?")) all.push("question");
-        else if (["love", "great", "awesome", "amazing", "best"].some(w => t.includes(w))) all.push("praise");
-        else if (["hate", "bad", "worst", "terrible", "boring"].some(w => t.includes(w))) all.push("complaint");
-        else if (["should", "suggest", "would be nice", "please add"].some(w => t.includes(w))) all.push("suggestion");
-        else all.push("other");
-      }
+        if (t.includes("?")) return "question" as const;
+        if (["love", "great", "awesome", "amazing", "best"].some(w => t.includes(w))) return "praise" as const;
+        if (["hate", "bad", "worst", "terrible", "boring"].some(w => t.includes(w))) return "complaint" as const;
+        if (["should", "suggest", "would be nice", "please add"].some(w => t.includes(w))) return "suggestion" as const;
+        return "other" as const;
+      });
     }
-  }
-  return all;
+  }));
+
+  return batchResults.flat();
 }
 
 // AI-powered insights generation
@@ -367,23 +373,20 @@ async function analyzeVideo(videoUrl: string, ytKey: string, aiKey: string | und
       .map(c => c.text.slice(0, 150));
   }
 
-  const topics = extractTopics(analyzed);
-  const keywords = extractKeywords(analyzed);
-
-  // AI insights
-  let insights;
-  if (aiKey) {
-    insights = await generateInsights(analyzed, sentimentCounts, aiKey);
-  } else {
-    const total = analyzed.length;
-    insights = {
-      summary: `${total} comments analyzed: ${Math.round(sentimentCounts.positive / total * 100)}% positive, ${Math.round(sentimentCounts.negative / total * 100)}% negative.`,
-      likes: ["Content quality"],
-      dislikes: ["No AI analysis available"],
-      complaints: ["No AI analysis available"],
-      recommendations: ["Enable AI for detailed insights"],
-    };
-  }
+  // Run topics, keywords, and AI insights in parallel
+  const [topics, keywords, insights] = await Promise.all([
+    Promise.resolve(extractTopics(analyzed)),
+    Promise.resolve(extractKeywords(analyzed)),
+    aiKey
+      ? generateInsights(analyzed, sentimentCounts, aiKey)
+      : Promise.resolve({
+          summary: `${analyzed.length} comments analyzed: ${Math.round(sentimentCounts.positive / analyzed.length * 100)}% positive, ${Math.round(sentimentCounts.negative / analyzed.length * 100)}% negative.`,
+          likes: ["Content quality"],
+          dislikes: ["No AI analysis available"],
+          complaints: ["No AI analysis available"],
+          recommendations: ["Enable AI for detailed insights"],
+        }),
+  ]);
 
   return {
     video,
