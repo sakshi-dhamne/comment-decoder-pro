@@ -1,12 +1,15 @@
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { MessageSquareReply } from "lucide-react";
+import AutoReplyGenerator from "@/components/AutoReplyGenerator";
 
 interface Comment {
   author: string;
   text: string;
   likeCount: number;
   sentiment: "positive" | "negative" | "neutral";
+  category?: string;
   publishedAt: string;
 }
 
@@ -16,9 +19,10 @@ const sentimentStyles: Record<string, string> = {
   neutral: "bg-muted text-muted-foreground border-border",
 };
 
-const CommentList = ({ comments }: { comments: Comment[] }) => {
+const CommentList = ({ comments, videoTitle }: { comments: Comment[]; videoTitle?: string }) => {
   const [filter, setFilter] = useState<string>("all");
   const [showCount, setShowCount] = useState(20);
+  const [replyingTo, setReplyingTo] = useState<number | null>(null);
 
   const filtered = filter === "all" ? comments : comments.filter(c => c.sentiment === filter);
   const visible = filtered.slice(0, showCount);
@@ -38,18 +42,39 @@ const CommentList = ({ comments }: { comments: Comment[] }) => {
           </Button>
         ))}
       </div>
-      <div className="space-y-2 max-h-96 overflow-y-auto pr-2">
+      <div className="space-y-2 max-h-[500px] overflow-y-auto pr-2">
         {visible.map((c, i) => (
-          <div key={i} className="p-3 rounded-lg bg-card border border-border">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-sm font-medium text-foreground">{c.author}</span>
-              <Badge className={`text-xs border ${sentimentStyles[c.sentiment]}`}>
-                {c.sentiment}
-              </Badge>
+          <div key={i}>
+            <div className="p-3 rounded-lg bg-card border border-border">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-sm font-medium text-foreground">{c.author}</span>
+                <div className="flex items-center gap-2">
+                  <Badge className={`text-xs border ${sentimentStyles[c.sentiment]}`}>
+                    {c.sentiment}
+                  </Badge>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => setReplyingTo(replyingTo === i ? null : i)}
+                  >
+                    <MessageSquareReply className="w-3 h-3 mr-1" /> Reply
+                  </Button>
+                </div>
+              </div>
+              <p className="text-sm text-muted-foreground">{c.text}</p>
+              {c.likeCount > 0 && (
+                <span className="text-xs text-muted-foreground mt-1 inline-block">👍 {c.likeCount}</span>
+              )}
             </div>
-            <p className="text-sm text-muted-foreground">{c.text}</p>
-            {c.likeCount > 0 && (
-              <span className="text-xs text-muted-foreground mt-1 inline-block">👍 {c.likeCount}</span>
+            {replyingTo === i && (
+              <div className="mt-2">
+                <AutoReplyGenerator
+                  comment={c}
+                  videoTitle={videoTitle}
+                  onClose={() => setReplyingTo(null)}
+                />
+              </div>
             )}
           </div>
         ))}
