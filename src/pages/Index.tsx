@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Download, MessageSquare, TrendingUp, BarChart3, Youtube, Share2, Sparkles, Tag, GitCompareArrows } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { saveReport } from "@/lib/saveReport";
 import MultiUrlInput from "@/components/MultiUrlInput";
 import SentimentChart from "@/components/SentimentChart";
 import TopicList from "@/components/TopicList";
@@ -42,8 +41,8 @@ const Index = () => {
       if (fnError) throw new Error(fnError.message);
       if (data?.error) throw new Error(data.error);
       setResult(data);
-      // Save to DB in background
-      saveReport(data, url).then(() => setReportRefreshKey((k) => k + 1));
+      // Report is saved server-side in the edge function
+      setReportRefreshKey((k) => k + 1);
     } catch (e: any) {
       const msg = e?.message || "Failed to analyze comments";
       setError(msg);
