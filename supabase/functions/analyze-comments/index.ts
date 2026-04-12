@@ -164,61 +164,71 @@ async function categorizeComments(
   return batchResults.flat();
 }
 
-// AI-powered insights generation
+// AI-powered insights generation (enhanced)
 async function generateInsights(
   comments: { text: string; sentiment: string; category: string }[],
   sentiment: { positive: number; negative: number; neutral: number },
+  topicsData: { topic: string; count: number }[],
   apiKey: string
-): Promise<{ summary: string; likes: string[]; dislikes: string[]; complaints: string[]; recommendations: string[] }> {
+) {
   const total = comments.length;
   const sampleComments = comments.slice(0, 100).map(c => `[${c.sentiment}/${c.category}] ${c.text.slice(0, 150)}`).join("\n");
+  const topTopics = topicsData.slice(0, 10).map(t => `"${t.topic}" (${t.count})`).join(", ");
 
   try {
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash-lite",
+        model: "google/gemini-2.5-flash",
         tools: [{
           type: "function",
           function: {
             name: "provide_insights",
-            description: "Provide structured insights about YouTube comments",
+            description: "Provide structured insights, content ideas, and trend analysis from YouTube comments",
             parameters: {
               type: "object",
               properties: {
-                summary: { type: "string", description: "2-3 sentence summary of overall audience sentiment and engagement" },
-                likes: { type: "array", items: { type: "string" }, description: "3-5 things the audience likes most" },
-                dislikes: { type: "array", items: { type: "string" }, description: "3-5 things the audience dislikes" },
-                complaints: { type: "array", items: { type: "string" }, description: "Top 3-5 specific complaints" },
-                recommendations: { type: "array", items: { type: "string" }, description: "3-5 actionable recommendations for the content creator" },
+                summary: { type: "string" },
+                likes: { type: "array", items: { type: "string" }, description: "3-5 things audience likes" },
+                dislikes: { type: "array", items: { type: "string" }, description: "3-5 things audience dislikes" },
+                complaints: { type: "array", items: { type: "string" }, description: "Top 3-5 complaints" },
+                recommendations: { type: "array", items: { type: "string" }, description: "3-5 actionable recommendations" },
+                nextSteps: { type: "array", items: { type: "object", properties: { action: { type: "string" }, priority: { type: "string", enum: ["high", "medium", "low"] }, rationale: { type: "string" } }, required: ["action", "priority", "rationale"] }, description: "5 'What to do next' actions with priority and rationale" },
+                contentIdeas: { type: "array", items: { type: "object", properties: { title: { type: "string" }, description: { type: "string" }, type: { type: "string", enum: ["video", "short", "community_post", "live_stream"] } }, required: ["title", "description", "type"] }, description: "5 content ideas from audience questions and requests" },
+                faqs: { type: "array", items: { type: "object", properties: { question: { type: "string" }, answer: { type: "string" } }, required: ["question", "answer"] }, description: "5 FAQs from comments with suggested answers" },
+                trendingTopics: { type: "array", items: { type: "object", properties: { topic: { type: "string" }, signal: { type: "string", enum: ["rising", "steady", "declining"] }, description: { type: "string" } }, required: ["topic", "signal", "description"] }, description: "5-8 trending topics with signal direction" },
               },
-              required: ["summary", "likes", "dislikes", "complaints", "recommendations"],
+              required: ["summary", "likes", "dislikes", "complaints", "recommendations", "nextSteps", "contentIdeas", "faqs", "trendingTopics"],
+              additionalProperties: false,
             },
           },
         }],
         tool_choice: { type: "function", function: { name: "provide_insights" } },
         messages: [
-          { role: "system", content: "You analyze YouTube comments and provide actionable insights for content creators." },
-          { role: "user", content: `Analyze these ${total} comments (${sentiment.positive} positive, ${sentiment.negative} negative, ${sentiment.neutral} neutral):\n\n${sampleComments}` },
+          { role: "system", content: "You analyze YouTube comments and provide actionable insights, content strategy, and trend analysis for creators. Be specific and data-driven. For nextSteps, give concrete actions the creator should take immediately." },
+          { role: "user", content: `Analyze ${total} comments (${sentiment.positive} positive, ${sentiment.negative} negative, ${sentiment.neutral} neutral).\n\nTop topics: ${topTopics}\n\nComments:\n${sampleComments}` },
         ],
       }),
     });
     if (!response.ok) throw new Error("AI error");
     const data = await response.json();
     const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
-    if (toolCall) {
-      return JSON.parse(toolCall.function.arguments);
-    }
+    if (toolCall) return JSON.parse(toolCall.function.arguments);
     throw new Error("No tool call");
   } catch (e) {
     console.error("Insights generation failed:", e);
+    const pct = (n: number) => Math.round(n / total * 100);
     return {
-      summary: `Analyzed ${total} comments: ${Math.round(sentiment.positive / total * 100)}% positive, ${Math.round(sentiment.negative / total * 100)}% negative, ${Math.round(sentiment.neutral / total * 100)}% neutral.`,
+      summary: `Analyzed ${total} comments: ${pct(sentiment.positive)}% positive, ${pct(sentiment.negative)}% negative, ${pct(sentiment.neutral)}% neutral.`,
       likes: ["Content quality", "Presentation style"],
       dislikes: ["Could not generate detailed dislikes"],
       complaints: ["Could not generate detailed complaints"],
       recommendations: ["Continue creating quality content", "Engage with your audience in comments"],
+      nextSteps: [{ action: "Review audience feedback manually", priority: "high", rationale: "AI analysis unavailable" }],
+      contentIdeas: [{ title: "Follow-up video based on top questions", description: "Address frequently asked questions", type: "video" }],
+      faqs: [{ question: "See comments for common questions", answer: "Review manually" }],
+      trendingTopics: [{ topic: topicsData[0]?.topic || "general", signal: "steady", description: "Most discussed topic" }],
     };
   }
 }
