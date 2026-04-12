@@ -373,23 +373,20 @@ async function analyzeVideo(videoUrl: string, ytKey: string, aiKey: string | und
       .map(c => c.text.slice(0, 150));
   }
 
-  const topics = extractTopics(analyzed);
-  const keywords = extractKeywords(analyzed);
-
-  // AI insights
-  let insights;
-  if (aiKey) {
-    insights = await generateInsights(analyzed, sentimentCounts, aiKey);
-  } else {
-    const total = analyzed.length;
-    insights = {
-      summary: `${total} comments analyzed: ${Math.round(sentimentCounts.positive / total * 100)}% positive, ${Math.round(sentimentCounts.negative / total * 100)}% negative.`,
-      likes: ["Content quality"],
-      dislikes: ["No AI analysis available"],
-      complaints: ["No AI analysis available"],
-      recommendations: ["Enable AI for detailed insights"],
-    };
-  }
+  // Run topics, keywords, and AI insights in parallel
+  const [topics, keywords, insights] = await Promise.all([
+    Promise.resolve(extractTopics(analyzed)),
+    Promise.resolve(extractKeywords(analyzed)),
+    aiKey
+      ? generateInsights(analyzed, sentimentCounts, aiKey)
+      : Promise.resolve({
+          summary: `${analyzed.length} comments analyzed: ${Math.round(sentimentCounts.positive / analyzed.length * 100)}% positive, ${Math.round(sentimentCounts.negative / analyzed.length * 100)}% negative.`,
+          likes: ["Content quality"],
+          dislikes: ["No AI analysis available"],
+          complaints: ["No AI analysis available"],
+          recommendations: ["Enable AI for detailed insights"],
+        }),
+  ]);
 
   return {
     video,
