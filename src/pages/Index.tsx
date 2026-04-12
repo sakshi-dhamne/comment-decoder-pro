@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Download, MessageSquare, TrendingUp, BarChart3, Youtube, Share2, Sparkles, Tag, GitCompareArrows } from "lucide-react";
+import { Download, MessageSquare, TrendingUp, BarChart3, Youtube, Share2, Sparkles, Tag, GitCompareArrows, Lightbulb, Activity } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import MultiUrlInput from "@/components/MultiUrlInput";
 import SentimentChart from "@/components/SentimentChart";
@@ -15,6 +15,8 @@ import CategoryBreakdown from "@/components/CategoryBreakdown";
 import KeywordCloud from "@/components/KeywordCloud";
 import ComparisonView from "@/components/ComparisonView";
 import ReportHistory from "@/components/ReportHistory";
+import ContentIdeas from "@/components/ContentIdeas";
+import TrendDetection from "@/components/TrendDetection";
 import { downloadJSON, downloadCSV } from "@/lib/downloadReport";
 import { useToast } from "@/hooks/use-toast";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -41,7 +43,6 @@ const Index = () => {
       if (fnError) throw new Error(fnError.message);
       if (data?.error) throw new Error(data.error);
       setResult(data);
-      // Report is saved server-side in the edge function
       setReportRefreshKey((k) => k + 1);
     } catch (e: any) {
       const msg = e?.message || "Failed to analyze comments";
@@ -117,7 +118,7 @@ const Index = () => {
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-20">
             <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
             <p className="text-muted-foreground">Analyzing comments with AI...</p>
-            <p className="text-xs text-muted-foreground mt-1">Sentiment, categorization, and insights generation</p>
+            <p className="text-xs text-muted-foreground mt-1">Sentiment, categorization, trends & content insights</p>
           </motion.div>
         )}
 
@@ -178,20 +179,26 @@ const Index = () => {
 
               {/* Tabbed Dashboard */}
               <Tabs defaultValue="insights" className="space-y-4">
-                <TabsList className="grid grid-cols-5 w-full">
-                  <TabsTrigger value="insights" className="gap-1.5">
+                <TabsList className="grid grid-cols-7 w-full">
+                  <TabsTrigger value="insights" className="gap-1.5 text-xs">
                     <Sparkles className="w-3.5 h-3.5" /> Insights
                   </TabsTrigger>
-                  <TabsTrigger value="sentiment" className="gap-1.5">
+                  <TabsTrigger value="ideas" className="gap-1.5 text-xs">
+                    <Lightbulb className="w-3.5 h-3.5" /> Ideas
+                  </TabsTrigger>
+                  <TabsTrigger value="trends" className="gap-1.5 text-xs">
+                    <Activity className="w-3.5 h-3.5" /> Trends
+                  </TabsTrigger>
+                  <TabsTrigger value="sentiment" className="gap-1.5 text-xs">
                     <TrendingUp className="w-3.5 h-3.5" /> Sentiment
                   </TabsTrigger>
-                  <TabsTrigger value="categories" className="gap-1.5">
+                  <TabsTrigger value="categories" className="gap-1.5 text-xs">
                     <Tag className="w-3.5 h-3.5" /> Categories
                   </TabsTrigger>
-                  <TabsTrigger value="trends" className="gap-1.5">
-                    <BarChart3 className="w-3.5 h-3.5" /> Trends
+                  <TabsTrigger value="keywords" className="gap-1.5 text-xs">
+                    <BarChart3 className="w-3.5 h-3.5" /> Keywords
                   </TabsTrigger>
-                  <TabsTrigger value="comments" className="gap-1.5">
+                  <TabsTrigger value="comments" className="gap-1.5 text-xs">
                     <MessageSquare className="w-3.5 h-3.5" /> Comments
                   </TabsTrigger>
                 </TabsList>
@@ -199,6 +206,42 @@ const Index = () => {
                 {/* AI Insights Tab */}
                 <TabsContent value="insights">
                   <AIInsights insights={result.insights} />
+                </TabsContent>
+
+                {/* Content Ideas Tab */}
+                <TabsContent value="ideas">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <Lightbulb className="w-5 h-5 text-primary" />
+                        Content Ideas & FAQs
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <ContentIdeas
+                        contentIdeas={result.insights.contentIdeas}
+                        faqs={result.insights.faqs}
+                      />
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                {/* Trends Tab */}
+                <TabsContent value="trends">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <Activity className="w-5 h-5 text-primary" />
+                        Trend Detection
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <TrendDetection
+                        trendingTopics={result.insights.trendingTopics}
+                        keywords={result.keywords}
+                      />
+                    </CardContent>
+                  </Card>
                 </TabsContent>
 
                 {/* Sentiment Tab */}
@@ -235,8 +278,8 @@ const Index = () => {
                   </Card>
                 </TabsContent>
 
-                {/* Trends Tab */}
-                <TabsContent value="trends">
+                {/* Keywords Tab */}
+                <TabsContent value="keywords">
                   <div className="grid md:grid-cols-2 gap-6">
                     <Card>
                       <CardHeader>
@@ -275,7 +318,7 @@ const Index = () => {
                       </div>
                     </CardHeader>
                     <CardContent>
-                      <CommentList comments={result.comments} />
+                      <CommentList comments={result.comments} videoTitle={result.video.title} />
                     </CardContent>
                   </Card>
                 </TabsContent>
@@ -293,7 +336,7 @@ const Index = () => {
           </div>
         )}
 
-        {/* Report History - always visible when not loading */}
+        {/* Report History */}
         {!isLoading && (
           <ReportHistory
             onLoad={(data) => { setResult(data); setComparisonResults(null); setError(null); }}
