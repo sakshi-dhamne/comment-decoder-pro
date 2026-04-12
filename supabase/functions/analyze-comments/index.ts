@@ -383,20 +383,23 @@ async function analyzeVideo(videoUrl: string, ytKey: string, aiKey: string | und
       .map(c => c.text.slice(0, 150));
   }
 
-  // Run topics, keywords, and AI insights in parallel
-  const [topics, keywords, insights] = await Promise.all([
-    Promise.resolve(extractTopics(analyzed)),
-    Promise.resolve(extractKeywords(analyzed)),
-    aiKey
-      ? generateInsights(analyzed, sentimentCounts, aiKey)
-      : Promise.resolve({
-          summary: `${analyzed.length} comments analyzed: ${Math.round(sentimentCounts.positive / analyzed.length * 100)}% positive, ${Math.round(sentimentCounts.negative / analyzed.length * 100)}% negative.`,
-          likes: ["Content quality"],
-          dislikes: ["No AI analysis available"],
-          complaints: ["No AI analysis available"],
-          recommendations: ["Enable AI for detailed insights"],
-        }),
-  ]);
+  const topics = extractTopics(analyzed);
+  const keywords = extractKeywords(analyzed);
+
+  // AI insights (needs topics for trend analysis)
+  const insights = aiKey
+    ? await generateInsights(analyzed, sentimentCounts, topics, aiKey)
+    : {
+        summary: `${analyzed.length} comments analyzed: ${Math.round(sentimentCounts.positive / analyzed.length * 100)}% positive, ${Math.round(sentimentCounts.negative / analyzed.length * 100)}% negative.`,
+        likes: ["Content quality"],
+        dislikes: ["No AI analysis available"],
+        complaints: ["No AI analysis available"],
+        recommendations: ["Enable AI for detailed insights"],
+        nextSteps: [{ action: "Enable AI for detailed analysis", priority: "high", rationale: "Get actionable insights" }],
+        contentIdeas: [{ title: "Review comments manually", description: "AI not available", type: "video" }],
+        faqs: [{ question: "Enable AI for FAQs", answer: "N/A" }],
+        trendingTopics: [{ topic: topics[0]?.topic || "general", signal: "steady", description: "Top topic" }],
+      };
 
   return {
     video,

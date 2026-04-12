@@ -1,3 +1,26 @@
+export interface NextStep {
+  action: string;
+  priority: "high" | "medium" | "low";
+  rationale: string;
+}
+
+export interface ContentIdea {
+  title: string;
+  description: string;
+  type: "video" | "short" | "community_post" | "live_stream";
+}
+
+export interface FAQ {
+  question: string;
+  answer: string;
+}
+
+export interface TrendingTopic {
+  topic: string;
+  signal: "rising" | "steady" | "declining";
+  description: string;
+}
+
 export interface AnalysisResult {
   video: {
     title: string;
@@ -18,6 +41,10 @@ export interface AnalysisResult {
     dislikes: string[];
     complaints: string[];
     recommendations: string[];
+    nextSteps?: NextStep[];
+    contentIdeas?: ContentIdea[];
+    faqs?: FAQ[];
+    trendingTopics?: TrendingTopic[];
   };
   comments: {
     author: string;
