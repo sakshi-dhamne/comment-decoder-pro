@@ -1,0 +1,2 @@
+ALTER TABLE public.analysis_reports DROP CONSTRAINT analysis_reports_video_id_unique;
+ALTER TABLE public.analysis_reports ADD CONSTRAINT analysis_reports_video_session_unique UNIQUE (video_id, session_id);
