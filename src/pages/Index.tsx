@@ -252,7 +252,7 @@ const Index = () => {
                         <CardTitle className="text-lg">Sentiment Breakdown</CardTitle>
                       </CardHeader>
                       <CardContent>
-                        <SentimentChart sentiment={result.sentiment} />
+                        <SentimentChart sentiment={result.sentiment} comments={result.comments} />
                       </CardContent>
                     </Card>
                     <Card>
