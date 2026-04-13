@@ -20,6 +20,7 @@ export type Database = {
           created_at: string
           id: string
           result: Json
+          session_id: string
           thumbnail: string | null
           video_id: string
           video_title: string | null
@@ -30,6 +31,7 @@ export type Database = {
           created_at?: string
           id?: string
           result: Json
+          session_id?: string
           thumbnail?: string | null
           video_id: string
           video_title?: string | null
@@ -40,6 +42,7 @@ export type Database = {
           created_at?: string
           id?: string
           result?: Json
+          session_id?: string
           thumbnail?: string | null
           video_id?: string
           video_title?: string | null
