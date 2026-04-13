@@ -44,8 +44,14 @@ const ReportHistory = ({ onLoad, refreshKey }: ReportHistoryProps) => {
   }, [refreshKey]);
 
   const deleteReport = async (id: string) => {
-    // Since we can't delete via RLS (no delete policy), just remove from UI
+    await supabase.from("analysis_reports").delete().eq("id", id).eq("session_id", getSessionId());
     setReports((prev) => prev.filter((r) => r.id !== id));
+  };
+
+  const clearAll = async () => {
+    const sessionId = getSessionId();
+    await supabase.from("analysis_reports").delete().eq("session_id", sessionId);
+    setReports([]);
   };
 
   if (loading) return null;
@@ -54,9 +60,14 @@ const ReportHistory = ({ onLoad, refreshKey }: ReportHistoryProps) => {
   return (
     <Card>
       <CardContent className="pt-5 pb-3">
-        <div className="flex items-center gap-2 mb-3">
-          <Clock className="w-4 h-4 text-muted-foreground" />
-          <h3 className="text-sm font-medium text-foreground">Recent Reports</h3>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Clock className="w-4 h-4 text-muted-foreground" />
+            <h3 className="text-sm font-medium text-foreground">Recent Reports</h3>
+          </div>
+          <Button variant="ghost" size="sm" className="text-xs text-muted-foreground hover:text-destructive h-7 px-2" onClick={clearAll}>
+            <Trash2 className="w-3 h-3 mr-1" /> Clear All
+          </Button>
         </div>
         <div className="space-y-2">
           {reports.map((r) => (
