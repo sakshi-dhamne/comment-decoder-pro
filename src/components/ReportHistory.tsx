@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Clock, Trash2, ExternalLink } from "lucide-react";
+import { getSessionId } from "@/lib/sessionId";
 import type { AnalysisResult } from "@/types/analysis";
 
 interface Report {
@@ -27,9 +28,11 @@ const ReportHistory = ({ onLoad, refreshKey }: ReportHistoryProps) => {
 
   const fetchReports = async () => {
     setLoading(true);
+    const sessionId = getSessionId();
     const { data } = await supabase
       .from("analysis_reports")
       .select("*")
+      .eq("session_id", sessionId)
       .order("created_at", { ascending: false })
       .limit(10);
     setReports((data as unknown as Report[]) || []);

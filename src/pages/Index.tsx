@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Download, MessageSquare, TrendingUp, BarChart3, Youtube, Share2, Sparkles, Tag, GitCompareArrows, Lightbulb, Activity } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionId } from "@/lib/sessionId";
 import MultiUrlInput from "@/components/MultiUrlInput";
 import SentimentChart from "@/components/SentimentChart";
 import TopicList from "@/components/TopicList";
@@ -38,7 +39,7 @@ const Index = () => {
 
     try {
       const { data, error: fnError } = await supabase.functions.invoke("analyze-comments", {
-        body: { videoUrl: url },
+        body: { videoUrl: url, sessionId: getSessionId() },
       });
       if (fnError) throw new Error(fnError.message);
       if (data?.error) throw new Error(data.error);
@@ -61,7 +62,7 @@ const Index = () => {
 
     try {
       const { data, error: fnError } = await supabase.functions.invoke("analyze-comments", {
-        body: { videoUrls: urls },
+        body: { videoUrls: urls, sessionId: getSessionId() },
       });
       if (fnError) throw new Error(fnError.message);
       if (data?.error) throw new Error(data.error);

@@ -8,6 +8,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 const BodySchema = z.object({
   videoUrl: z.string().min(1).max(500).optional(),
   videoUrls: z.array(z.string().min(1).max(500)).max(5).optional(),
+  sessionId: z.string().min(1).max(100).optional(),
 }).refine(d => d.videoUrl || (d.videoUrls && d.videoUrls.length > 0), {
   message: "Provide videoUrl or videoUrls",
 });
@@ -437,6 +438,7 @@ Deno.serve(async (req) => {
     }
 
     const urls = parsed.data.videoUrls || [parsed.data.videoUrl!];
+    const sessionId = parsed.data.sessionId || "anonymous";
 
     if (urls.length === 1) {
       const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -445,12 +447,13 @@ Deno.serve(async (req) => {
       const vidMatch = urls[0].match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([a-zA-Z0-9_-]{11})/);
       const videoId = vidMatch?.[1] || "unknown";
 
-      // Check for cached report within 24 hours
+      // Check for cached report within 24 hours for this session
       const CACHE_MS = 24 * 60 * 60 * 1000;
       const { data: cached } = await sb
         .from("analysis_reports")
         .select("result, created_at")
         .eq("video_id", videoId)
+        .eq("session_id", sessionId)
         .maybeSingle();
 
       if (cached && (Date.now() - new Date(cached.created_at).getTime() < CACHE_MS)) {
@@ -461,7 +464,7 @@ Deno.serve(async (req) => {
 
       const result = await analyzeVideo(urls[0], YOUTUBE_API_KEY, LOVABLE_API_KEY);
 
-      // Upsert report (unique on video_id)
+      // Upsert report (unique on video_id + session_id)
       try {
         await sb.from("analysis_reports").upsert({
           video_id: videoId,
@@ -470,8 +473,9 @@ Deno.serve(async (req) => {
           channel_title: result.video?.channelTitle || null,
           thumbnail: result.video?.thumbnail || null,
           result: result as any,
+          session_id: sessionId,
           created_at: new Date().toISOString(),
-        }, { onConflict: "video_id" });
+        }, { onConflict: "video_id,session_id" });
       } catch (e) {
         console.error("Failed to save report:", e);
       }
