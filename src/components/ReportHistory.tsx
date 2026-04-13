@@ -44,8 +44,14 @@ const ReportHistory = ({ onLoad, refreshKey }: ReportHistoryProps) => {
   }, [refreshKey]);
 
   const deleteReport = async (id: string) => {
-    // Since we can't delete via RLS (no delete policy), just remove from UI
+    await supabase.from("analysis_reports").delete().eq("id", id).eq("session_id", getSessionId());
     setReports((prev) => prev.filter((r) => r.id !== id));
+  };
+
+  const clearAll = async () => {
+    const sessionId = getSessionId();
+    await supabase.from("analysis_reports").delete().eq("session_id", sessionId);
+    setReports([]);
   };
 
   if (loading) return null;
