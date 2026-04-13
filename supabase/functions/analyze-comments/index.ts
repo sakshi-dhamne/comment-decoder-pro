@@ -439,23 +439,39 @@ Deno.serve(async (req) => {
     const urls = parsed.data.videoUrls || [parsed.data.videoUrl!];
 
     if (urls.length === 1) {
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const sb = createClient(supabaseUrl, serviceKey);
+      const vidMatch = urls[0].match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([a-zA-Z0-9_-]{11})/);
+      const videoId = vidMatch?.[1] || "unknown";
+
+      // Check for cached report within 24 hours
+      const CACHE_MS = 24 * 60 * 60 * 1000;
+      const { data: cached } = await sb
+        .from("analysis_reports")
+        .select("result, created_at")
+        .eq("video_id", videoId)
+        .maybeSingle();
+
+      if (cached && (Date.now() - new Date(cached.created_at).getTime() < CACHE_MS)) {
+        return new Response(JSON.stringify(cached.result), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
       const result = await analyzeVideo(urls[0], YOUTUBE_API_KEY, LOVABLE_API_KEY);
 
-      // Save report server-side using service role
+      // Upsert report (unique on video_id)
       try {
-        const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-        const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-        const sb = createClient(supabaseUrl, serviceKey);
-        const vidMatch = urls[0].match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([a-zA-Z0-9_-]{11})/);
-        const videoId = vidMatch?.[1] || "unknown";
-        await sb.from("analysis_reports").insert({
+        await sb.from("analysis_reports").upsert({
           video_id: videoId,
           video_url: urls[0],
           video_title: result.video?.title || null,
           channel_title: result.video?.channelTitle || null,
           thumbnail: result.video?.thumbnail || null,
           result: result as any,
-        });
+          created_at: new Date().toISOString(),
+        }, { onConflict: "video_id" });
       } catch (e) {
         console.error("Failed to save report:", e);
       }
