@@ -281,6 +281,11 @@ async function generateInsights(
   const sampleComments = comments.slice(0, 100).map(c => `[${c.sentiment}/${c.category}] ${c.text.slice(0, 150)}`).join("\n");
   const topTopics = topicsData.slice(0, 10).map(t => `"${t.topic}" (${t.count})`).join(", ");
 
+  const userContent = `Analyze ${total} comments (${sentiment.positive} positive, ${sentiment.negative} negative, ${sentiment.neutral} neutral).\n\nTop topics: ${topTopics}\n\nComments:\n${sampleComments}`;
+  const insightInputTokens = estimateTokens(userContent) + 80;
+  tokenTracker.inputTokens += insightInputTokens;
+  tokenTracker.aiCalls++;
+
   try {
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -313,14 +318,17 @@ async function generateInsights(
         tool_choice: { type: "function", function: { name: "provide_insights" } },
         messages: [
           { role: "system", content: "You analyze YouTube comments and provide actionable insights, content strategy, and trend analysis for creators. Be specific and data-driven. For nextSteps, give concrete actions the creator should take immediately." },
-          { role: "user", content: `Analyze ${total} comments (${sentiment.positive} positive, ${sentiment.negative} negative, ${sentiment.neutral} neutral).\n\nTop topics: ${topTopics}\n\nComments:\n${sampleComments}` },
+          { role: "user", content: userContent },
         ],
       }),
     });
     if (!response.ok) throw new Error("AI error");
     const data = await response.json();
     const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
-    if (toolCall) return JSON.parse(toolCall.function.arguments);
+    if (toolCall) {
+      tokenTracker.outputTokens += estimateTokens(toolCall.function.arguments);
+      return JSON.parse(toolCall.function.arguments);
+    }
     throw new Error("No tool call");
   } catch (e) {
     console.error("Insights generation failed:", e);
