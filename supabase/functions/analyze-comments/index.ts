@@ -451,6 +451,13 @@ function extractKeywords(comments: { text: string }[]): { word: string; count: n
 }
 
 async function analyzeVideo(videoUrl: string, ytKey: string, aiKey: string | undefined) {
+  // Reset token tracker for this analysis
+  tokenTracker.inputTokens = 0;
+  tokenTracker.outputTokens = 0;
+  tokenTracker.aiCalls = 0;
+  tokenTracker.skippedByKeyword = 0;
+  tokenTracker.skippedByDedup = 0;
+
   const videoId = extractVideoId(videoUrl);
   if (!videoId) throw new Error(`Invalid YouTube URL: ${videoUrl}`);
 
@@ -525,6 +532,14 @@ async function analyzeVideo(videoUrl: string, ytKey: string, aiKey: string | und
     keywords,
     insights,
     comments: analyzed.slice(0, 200),
+    tokenUsage: {
+      inputTokens: tokenTracker.inputTokens,
+      outputTokens: tokenTracker.outputTokens,
+      totalTokens: tokenTracker.inputTokens + tokenTracker.outputTokens,
+      aiCalls: tokenTracker.aiCalls,
+      skippedByKeyword: tokenTracker.skippedByKeyword,
+      skippedByDedup: tokenTracker.skippedByDedup,
+    },
   };
 }
 
