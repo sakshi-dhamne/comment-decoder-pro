@@ -66,20 +66,97 @@ async function fetchVideoInfo(videoId: string, apiKey: string) {
     commentCount: stats?.commentCount,
   };
 }
+// Token usage tracker
+const tokenTracker = { inputTokens: 0, outputTokens: 0, aiCalls: 0, skippedByKeyword: 0, skippedByDedup: 0 };
 
-// AI sentiment batch analysis
+function estimateTokens(text: string): number {
+  return Math.ceil(text.length / 4);
+}
+
+// Text preprocessing: strip URLs, repeated chars, filler
+function preprocessText(text: string): string {
+  return text
+    .replace(/https?:\/\/\S+/g, "")           // URLs
+    .replace(/(.)\1{3,}/g, "$1$1")             // repeated chars (e.g. "sooooo" → "soo")
+    .replace(/\b(um|uh|like|basically|literally|actually|honestly)\b/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+// Strong keyword match for obvious sentiment (high confidence only)
+function strongKeywordSentiment(text: string): "positive" | "negative" | null {
+  const lower = text.toLowerCase();
+  const strongPos = ["love", "amazing", "awesome", "excellent", "fantastic", "best ever", "perfect", "incredible", "brilliant", "masterpiece", "❤", "😍", "💯", "🔥", "👍"];
+  const strongNeg = ["hate", "terrible", "awful", "worst", "horrible", "garbage", "trash", "disgusting", "pathetic", "🤮", "💩", "👎", "😡"];
+  let p = 0, n = 0;
+  for (const w of strongPos) if (lower.includes(w)) p++;
+  for (const w of strongNeg) if (lower.includes(w)) n++;
+  // Only classify if clear signal (no mixed signals)
+  if (p >= 2 && n === 0) return "positive";
+  if (n >= 2 && p === 0) return "negative";
+  if (p >= 1 && n === 0 && lower.length < 60) return "positive";
+  if (n >= 1 && p === 0 && lower.length < 60) return "negative";
+  return null; // ambiguous → send to AI
+}
+
+// Deduplicate near-identical comments
+function deduplicateComments(comments: { text: string; originalIndex: number }[]): { unique: { text: string; originalIndex: number }[]; dupMap: Map<number, number> } {
+  const seen = new Map<string, number>(); // normalized → first index in unique array
+  const unique: { text: string; originalIndex: number }[] = [];
+  const dupMap = new Map<number, number>(); // originalIndex of dup → originalIndex of first
+
+  for (const c of comments) {
+    const norm = c.text.toLowerCase().replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, " ").trim().slice(0, 80);
+    if (seen.has(norm)) {
+      dupMap.set(c.originalIndex, seen.get(norm)!);
+      tokenTracker.skippedByDedup++;
+    } else {
+      seen.set(norm, c.originalIndex);
+      unique.push(c);
+    }
+  }
+  return { unique, dupMap };
+}
+
+// AI sentiment batch analysis (hybrid: keyword pre-filter + dedup + AI for ambiguous)
 async function analyzeSentimentBatch(
   comments: { text: string }[],
   apiKey: string
 ): Promise<("positive" | "negative" | "neutral")[]> {
-  const BATCH_SIZE = 50;
-  const batches: { text: string }[][] = [];
-  for (let i = 0; i < comments.length; i += BATCH_SIZE) {
-    batches.push(comments.slice(i, i + BATCH_SIZE));
+  const results: ("positive" | "negative" | "neutral")[] = new Array(comments.length);
+
+  // Phase 1: keyword pre-classification
+  const ambiguousIndices: number[] = [];
+  for (let i = 0; i < comments.length; i++) {
+    const kw = strongKeywordSentiment(comments[i].text);
+    if (kw) {
+      results[i] = kw;
+      tokenTracker.skippedByKeyword++;
+    } else {
+      ambiguousIndices.push(i);
+    }
   }
 
-  const batchResults = await Promise.all(batches.map(async (batch) => {
-    const numbered = batch.map((c, idx) => `${idx + 1}. ${c.text.slice(0, 200)}`).join("\n");
+  if (ambiguousIndices.length === 0) return results;
+
+  // Phase 2: dedup ambiguous comments
+  const ambiguous = ambiguousIndices.map(i => ({ text: preprocessText(comments[i].text), originalIndex: i }));
+  const { unique, dupMap } = deduplicateComments(ambiguous);
+
+  // Phase 3: AI classification on unique ambiguous comments only
+  const BATCH_SIZE = 50;
+  const batches: { text: string; originalIndex: number }[][] = [];
+  for (let i = 0; i < unique.length; i += BATCH_SIZE) {
+    batches.push(unique.slice(i, i + BATCH_SIZE));
+  }
+
+  const aiResults = new Map<number, "positive" | "negative" | "neutral">();
+
+  await Promise.all(batches.map(async (batch) => {
+    const numbered = batch.map((c, idx) => `${idx + 1}. ${c.text.slice(0, 150)}`).join("\n");
+    const inputTokens = estimateTokens(numbered) + 25; // +system prompt
+    tokenTracker.inputTokens += inputTokens;
+    tokenTracker.aiCalls++;
     try {
       const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
@@ -94,17 +171,31 @@ async function analyzeSentimentBatch(
       });
       if (!response.ok) throw new Error("AI error");
       const data = await response.json();
-      const lines = (data.choices?.[0]?.message?.content?.trim() || "").split("\n").map((l: string) => l.trim().toLowerCase());
-      return batch.map((_, j) => {
+      const content = data.choices?.[0]?.message?.content?.trim() || "";
+      tokenTracker.outputTokens += estimateTokens(content);
+      const lines = content.split("\n").map((l: string) => l.trim().toLowerCase());
+      batch.forEach((c, j) => {
         const line = lines[j] || "";
-        return (line.includes("positive") ? "positive" : line.includes("negative") ? "negative" : "neutral") as "positive" | "negative" | "neutral";
+        aiResults.set(c.originalIndex, (line.includes("positive") ? "positive" : line.includes("negative") ? "negative" : "neutral"));
       });
     } catch {
-      return batch.map(c => keywordSentiment(c.text));
+      batch.forEach(c => aiResults.set(c.originalIndex, keywordSentiment(c.text)));
     }
   }));
 
-  return batchResults.flat();
+  // Assign AI results to ambiguous comments
+  for (const idx of ambiguousIndices) {
+    if (aiResults.has(idx)) {
+      results[idx] = aiResults.get(idx)!;
+    } else if (dupMap.has(idx)) {
+      // Copy result from the original dedup'd comment
+      results[idx] = aiResults.get(dupMap.get(idx)!) || keywordSentiment(comments[idx].text);
+    } else {
+      results[idx] = keywordSentiment(comments[idx].text);
+    }
+  }
+
+  return results;
 }
 
 function keywordSentiment(text: string): "positive" | "negative" | "neutral" {
@@ -117,19 +208,27 @@ function keywordSentiment(text: string): "positive" | "negative" | "neutral" {
   return p > n ? "positive" : n > p ? "negative" : "neutral";
 }
 
-// AI-powered categorization
+// AI-powered categorization (with preprocessing + dedup)
 async function categorizeComments(
   comments: { text: string }[],
   apiKey: string
 ): Promise<("praise" | "complaint" | "question" | "suggestion" | "spam" | "other")[]> {
+  const preprocessed = comments.map((c, i) => ({ text: preprocessText(c.text), originalIndex: i }));
+  const { unique, dupMap } = deduplicateComments(preprocessed);
+
   const BATCH_SIZE = 50;
-  const batches: { text: string }[][] = [];
-  for (let i = 0; i < comments.length; i += BATCH_SIZE) {
-    batches.push(comments.slice(i, i + BATCH_SIZE));
+  const batches: { text: string; originalIndex: number }[][] = [];
+  for (let i = 0; i < unique.length; i += BATCH_SIZE) {
+    batches.push(unique.slice(i, i + BATCH_SIZE));
   }
 
-  const batchResults = await Promise.all(batches.map(async (batch) => {
-    const numbered = batch.map((c, idx) => `${idx + 1}. ${c.text.slice(0, 200)}`).join("\n");
+  const catResults = new Map<number, "praise" | "complaint" | "question" | "suggestion" | "spam" | "other">();
+
+  await Promise.all(batches.map(async (batch) => {
+    const numbered = batch.map((c, idx) => `${idx + 1}. ${c.text.slice(0, 150)}`).join("\n");
+    const inputTokens = estimateTokens(numbered) + 30;
+    tokenTracker.inputTokens += inputTokens;
+    tokenTracker.aiCalls++;
     try {
       const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
@@ -144,25 +243,31 @@ async function categorizeComments(
       });
       if (!response.ok) throw new Error("AI error");
       const data = await response.json();
-      const lines = (data.choices?.[0]?.message?.content?.trim() || "").split("\n").map((l: string) => l.trim().toLowerCase());
+      const content = data.choices?.[0]?.message?.content?.trim() || "";
+      tokenTracker.outputTokens += estimateTokens(content);
+      const lines = content.split("\n").map((l: string) => l.trim().toLowerCase());
       const valid = ["praise", "complaint", "question", "suggestion", "spam", "other"] as const;
-      return batch.map((_, j) => {
+      batch.forEach((c, j) => {
         const line = lines[j] || "";
-        return (valid.find(v => line.includes(v)) || "other") as "praise" | "complaint" | "question" | "suggestion" | "spam" | "other";
+        catResults.set(c.originalIndex, (valid.find(v => line.includes(v)) || "other"));
       });
     } catch {
-      return batch.map(c => {
+      batch.forEach(c => {
         const t = c.text.toLowerCase();
-        if (t.includes("?")) return "question" as const;
-        if (["love", "great", "awesome", "amazing", "best"].some(w => t.includes(w))) return "praise" as const;
-        if (["hate", "bad", "worst", "terrible", "boring"].some(w => t.includes(w))) return "complaint" as const;
-        if (["should", "suggest", "would be nice", "please add"].some(w => t.includes(w))) return "suggestion" as const;
-        return "other" as const;
+        if (t.includes("?")) catResults.set(c.originalIndex, "question");
+        else if (["love", "great", "awesome", "amazing", "best"].some(w => t.includes(w))) catResults.set(c.originalIndex, "praise");
+        else if (["hate", "bad", "worst", "terrible", "boring"].some(w => t.includes(w))) catResults.set(c.originalIndex, "complaint");
+        else if (["should", "suggest", "would be nice", "please add"].some(w => t.includes(w))) catResults.set(c.originalIndex, "suggestion");
+        else catResults.set(c.originalIndex, "other");
       });
     }
   }));
 
-  return batchResults.flat();
+  return comments.map((_, i) => {
+    if (catResults.has(i)) return catResults.get(i)!;
+    if (dupMap.has(i)) return catResults.get(dupMap.get(i)!) || "other";
+    return "other";
+  });
 }
 
 // AI-powered insights generation (enhanced)
