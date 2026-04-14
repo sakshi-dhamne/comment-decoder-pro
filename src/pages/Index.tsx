@@ -18,6 +18,7 @@ import ComparisonView from "@/components/ComparisonView";
 import ReportHistory from "@/components/ReportHistory";
 import ContentIdeas from "@/components/ContentIdeas";
 import TrendDetection from "@/components/TrendDetection";
+import TokenUsagePanel from "@/components/TokenUsagePanel";
 import { downloadJSON, downloadCSV } from "@/lib/downloadReport";
 import { useToast } from "@/hooks/use-toast";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -157,6 +158,11 @@ const Index = () => {
                   <VideoInfo video={result.video} totalAnalyzed={result.totalAnalyzed} />
                 </CardContent>
               </Card>
+
+              {/* Token Usage (owner-only debug panel) */}
+              {result.tokenUsage && (
+                <TokenUsagePanel tokenUsage={result.tokenUsage} totalComments={result.totalAnalyzed} />
+              )}
 
               {/* Stats Row */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

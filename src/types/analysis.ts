@@ -21,6 +21,15 @@ export interface TrendingTopic {
   description: string;
 }
 
+export interface TokenUsage {
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  aiCalls: number;
+  skippedByKeyword: number;
+  skippedByDedup: number;
+}
+
 export interface AnalysisResult {
   video: {
     title: string;
@@ -54,4 +63,5 @@ export interface AnalysisResult {
     category: string;
     publishedAt: string;
   }[];
+  tokenUsage?: TokenUsage;
 }
