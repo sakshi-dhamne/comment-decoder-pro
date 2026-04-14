@@ -447,14 +447,16 @@ Deno.serve(async (req) => {
       const vidMatch = urls[0].match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([a-zA-Z0-9_-]{11})/);
       const videoId = vidMatch?.[1] || "unknown";
 
-      // Check for cached report within 24 hours for this session
+      // Check for cached report within 24 hours (any session)
       const CACHE_MS = 24 * 60 * 60 * 1000;
-      const { data: cached } = await sb
+      const { data: cachedRows } = await sb
         .from("analysis_reports")
-        .select("result, created_at")
+        .select("result, created_at, session_id")
         .eq("video_id", videoId)
-        .eq("session_id", sessionId)
-        .maybeSingle();
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      const cached = cachedRows?.[0] ?? null;
 
       if (cached && (Date.now() - new Date(cached.created_at).getTime() < CACHE_MS)) {
         return new Response(JSON.stringify(cached.result), {
