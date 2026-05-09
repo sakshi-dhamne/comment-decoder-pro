@@ -33,7 +33,21 @@ const Index = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reportRefreshKey, setReportRefreshKey] = useState(0);
+  const [limitReached, setLimitReached] = useState(!canAnalyze());
   const { toast } = useToast();
+
+  const guard = (): boolean => {
+    if (!canAnalyze()) {
+      setLimitReached(true);
+      toast({
+        title: "Daily limit reached",
+        description: `Free tier allows ${FREE_DAILY_LIMIT} analyses/day. Upgrade for unlimited.`,
+        variant: "destructive",
+      });
+      return false;
+    }
+    return true;
+  };
 
   const handleAnalyzeSingle = async (url: string) => {
     setIsLoading(true);
