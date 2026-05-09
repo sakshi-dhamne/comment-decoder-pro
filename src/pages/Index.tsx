@@ -380,6 +380,11 @@ const Index = () => {
           </div>
         )}
 
+        {/* Ad above history */}
+        {!isPremium() && !isLoading && (result || comparisonResults) && (
+          <AdSlot slot="above_history" variant="native" />
+        )}
+
         {/* Report History */}
         {!isLoading && (
           <ReportHistory
