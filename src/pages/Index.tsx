@@ -76,6 +76,7 @@ const Index = () => {
   };
 
   const handleAnalyzeMultiple = async (urls: string[]) => {
+    if (!guard()) return;
     setIsLoading(true);
     setError(null);
     setResult(null);
