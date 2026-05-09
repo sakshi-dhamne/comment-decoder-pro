@@ -157,7 +157,7 @@ const MultiUrlInput = ({ onSubmitSingle, onSubmitMultiple, isLoading }: MultiUrl
             <GitCompareArrows className="w-4 h-4" />
             {compareMode ? "Single Mode" : "Compare Videos"}
           </Button>
-          {compareMode && urls.length < 5 && (
+          {compareMode && urls.length < 3 && (
             <Button type="button" variant="ghost" size="sm" onClick={addUrl} className="gap-1 h-10">
               <Plus className="w-4 h-4" /> Add URL
             </Button>
