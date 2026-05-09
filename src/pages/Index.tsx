@@ -63,6 +63,8 @@ const Index = () => {
       if (fnError) throw new Error(fnError.message);
       if (data?.error) throw new Error(data.error);
       setResult(data);
+      recordAnalysis();
+      setLimitReached(!canAnalyze());
       setReportRefreshKey((k) => k + 1);
     } catch (e: any) {
       const msg = e?.message || "Failed to analyze comments";
