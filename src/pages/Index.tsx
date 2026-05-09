@@ -93,6 +93,8 @@ const Index = () => {
       } else {
         setResult(data);
       }
+      recordAnalysis();
+      setLimitReached(!canAnalyze());
     } catch (e: any) {
       const msg = e?.message || "Failed to analyze";
       setError(msg);
