@@ -50,6 +50,7 @@ const Index = () => {
   };
 
   const handleAnalyzeSingle = async (url: string) => {
+    if (!guard()) return;
     setIsLoading(true);
     setError(null);
     setResult(null);
