@@ -19,9 +19,12 @@ import ReportHistory from "@/components/ReportHistory";
 import ContentIdeas from "@/components/ContentIdeas";
 import TrendDetection from "@/components/TrendDetection";
 import TokenUsagePanel from "@/components/TokenUsagePanel";
+import AdSlot from "@/components/AdSlot";
+import UpgradePrompt from "@/components/UpgradePrompt";
 import { downloadJSON, downloadCSV } from "@/lib/downloadReport";
 import { useToast } from "@/hooks/use-toast";
 import ThemeToggle from "@/components/ThemeToggle";
+import { canAnalyze, recordAnalysis, getRemainingAnalyses, isPremium, FREE_DAILY_LIMIT, getUsedToday } from "@/lib/usageTracking";
 import type { AnalysisResult } from "@/types/analysis";
 
 const Index = () => {
@@ -30,9 +33,24 @@ const Index = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reportRefreshKey, setReportRefreshKey] = useState(0);
+  const [limitReached, setLimitReached] = useState(!canAnalyze());
   const { toast } = useToast();
 
+  const guard = (): boolean => {
+    if (!canAnalyze()) {
+      setLimitReached(true);
+      toast({
+        title: "Daily limit reached",
+        description: `Free tier allows ${FREE_DAILY_LIMIT} analyses/day. Upgrade for unlimited.`,
+        variant: "destructive",
+      });
+      return false;
+    }
+    return true;
+  };
+
   const handleAnalyzeSingle = async (url: string) => {
+    if (!guard()) return;
     setIsLoading(true);
     setError(null);
     setResult(null);
@@ -45,6 +63,8 @@ const Index = () => {
       if (fnError) throw new Error(fnError.message);
       if (data?.error) throw new Error(data.error);
       setResult(data);
+      recordAnalysis();
+      setLimitReached(!canAnalyze());
       setReportRefreshKey((k) => k + 1);
     } catch (e: any) {
       const msg = e?.message || "Failed to analyze comments";
@@ -56,6 +76,7 @@ const Index = () => {
   };
 
   const handleAnalyzeMultiple = async (urls: string[]) => {
+    if (!guard()) return;
     setIsLoading(true);
     setError(null);
     setResult(null);
@@ -72,6 +93,8 @@ const Index = () => {
       } else {
         setResult(data);
       }
+      recordAnalysis();
+      setLimitReached(!canAnalyze());
     } catch (e: any) {
       const msg = e?.message || "Failed to analyze";
       setError(msg);
@@ -111,10 +134,21 @@ const Index = () => {
             <ThemeToggle />
           </div>
           <MultiUrlInput onSubmitSingle={handleAnalyzeSingle} onSubmitMultiple={handleAnalyzeMultiple} isLoading={isLoading} />
+          {!isPremium() && (
+            <p className="mt-3 text-xs text-muted-foreground">
+              {getUsedToday()}/{FREE_DAILY_LIMIT} free analyses used today
+            </p>
+          )}
         </div>
       </header>
 
       <main className="container max-w-5xl mx-auto py-8 px-4 space-y-6">
+        {/* Ad below search bar */}
+        {!isPremium() && !isLoading && <AdSlot slot="below_search" variant="banner" />}
+
+        {/* Limit reached upgrade prompt */}
+        {limitReached && !isPremium() && !isLoading && <UpgradePrompt variant="card" />}
+
         {/* Loading */}
         {isLoading && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-20">
@@ -183,6 +217,9 @@ const Index = () => {
                   </Card>
                 ))}
               </div>
+
+              {/* Native ad between sections */}
+              {!isPremium() && <AdSlot slot="between_stats_tabs" variant="native" />}
 
               {/* Tabbed Dashboard */}
               <Tabs defaultValue="insights" className="space-y-4">
@@ -341,6 +378,11 @@ const Index = () => {
             <p className="text-muted-foreground">Paste a YouTube URL above to get started</p>
             <p className="text-xs text-muted-foreground">Or compare multiple videos side-by-side</p>
           </div>
+        )}
+
+        {/* Ad above history */}
+        {!isPremium() && !isLoading && (result || comparisonResults) && (
+          <AdSlot slot="above_history" variant="native" />
         )}
 
         {/* Report History */}
