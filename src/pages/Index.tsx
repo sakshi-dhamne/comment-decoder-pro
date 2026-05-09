@@ -19,9 +19,12 @@ import ReportHistory from "@/components/ReportHistory";
 import ContentIdeas from "@/components/ContentIdeas";
 import TrendDetection from "@/components/TrendDetection";
 import TokenUsagePanel from "@/components/TokenUsagePanel";
+import AdSlot from "@/components/AdSlot";
+import UpgradePrompt from "@/components/UpgradePrompt";
 import { downloadJSON, downloadCSV } from "@/lib/downloadReport";
 import { useToast } from "@/hooks/use-toast";
 import ThemeToggle from "@/components/ThemeToggle";
+import { canAnalyze, recordAnalysis, getRemainingAnalyses, isPremium, FREE_DAILY_LIMIT, getUsedToday } from "@/lib/usageTracking";
 import type { AnalysisResult } from "@/types/analysis";
 
 const Index = () => {
