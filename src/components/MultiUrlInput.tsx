@@ -75,7 +75,7 @@ const MultiUrlInput = ({ onSubmitSingle, onSubmitMultiple, isLoading }: MultiUrl
   };
 
   const addUrl = () => {
-    if (urls.length < 5) setUrls([...urls, ""]);
+    if (urls.length < 3) setUrls([...urls, ""]);
   };
 
   const removeUrl = (idx: number) => {
