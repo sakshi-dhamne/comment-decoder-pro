@@ -134,10 +134,21 @@ const Index = () => {
             <ThemeToggle />
           </div>
           <MultiUrlInput onSubmitSingle={handleAnalyzeSingle} onSubmitMultiple={handleAnalyzeMultiple} isLoading={isLoading} />
+          {!isPremium() && (
+            <p className="mt-3 text-xs text-muted-foreground">
+              {getUsedToday()}/{FREE_DAILY_LIMIT} free analyses used today
+            </p>
+          )}
         </div>
       </header>
 
       <main className="container max-w-5xl mx-auto py-8 px-4 space-y-6">
+        {/* Ad below search bar */}
+        {!isPremium() && !isLoading && <AdSlot slot="below_search" variant="banner" />}
+
+        {/* Limit reached upgrade prompt */}
+        {limitReached && !isPremium() && !isLoading && <UpgradePrompt variant="card" />}
+
         {/* Loading */}
         {isLoading && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-20">
