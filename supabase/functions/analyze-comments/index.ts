@@ -7,7 +7,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const BodySchema = z.object({
   videoUrl: z.string().min(1).max(500).optional(),
-  videoUrls: z.array(z.string().min(1).max(500)).max(5).optional(),
+  videoUrls: z.array(z.string().min(1).max(500)).max(3).optional(),
   sessionId: z.string().min(1).max(100).optional(),
 }).refine(d => d.videoUrl || (d.videoUrls && d.videoUrls.length > 0), {
   message: "Provide videoUrl or videoUrls",

@@ -11,26 +11,27 @@ interface AdSlotProps {
   adsenseSlotId?: string;
 }
 
-// Curated rotating house promos. Replace with real ad-network markup
+// Curated rotating sponsored promos. All advertise paid/external offerings —
+// never features the free tier already has. Replace with real ad-network markup
 // (e.g., AdSense <ins> + adsbygoogle.push) when publisher ID is available.
 const PROMOS = [
   {
-    title: "Coming Soon: Pro Tier",
-    body: "Unlimited analyses, deeper AI, no ads. Join the waitlist.",
-    cta: "Get notified",
+    title: "Pro: Unlimited Analyses",
+    body: "Remove daily limits, unlock deeper AI models, and hide all ads.",
+    cta: "Upgrade",
     href: "#upgrade",
   },
   {
-    title: "Compare Videos Side-by-Side",
-    body: "Drop multiple YouTube URLs to benchmark sentiment & topics.",
-    cta: "Try it",
-    href: "#multi",
+    title: "Pro: Bulk Video Reports",
+    body: "Analyze 10+ videos at once and export branded PDF reports.",
+    cta: "Go Pro",
+    href: "#upgrade",
   },
   {
-    title: "Export Reports",
-    body: "Download full analysis as JSON or CSV for your workflow.",
-    cta: "Learn more",
-    href: "#export",
+    title: "Pro: API Access",
+    body: "Integrate Comment Insights into your own pipeline via REST API.",
+    cta: "Join waitlist",
+    href: "#upgrade",
   },
 ];
 
