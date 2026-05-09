@@ -218,6 +218,9 @@ const Index = () => {
                 ))}
               </div>
 
+              {/* Native ad between sections */}
+              {!isPremium() && <AdSlot slot="between_stats_tabs" variant="native" />}
+
               {/* Tabbed Dashboard */}
               <Tabs defaultValue="insights" className="space-y-4">
                 <TabsList className="grid grid-cols-7 w-full">
