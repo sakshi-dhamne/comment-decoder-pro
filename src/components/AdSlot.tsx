@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { ExternalLink, Sparkles } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { trackAdEvent, isPremium } from "@/lib/usageTracking";
+import { ADSENSE_CLIENT, ADSENSE_SLOTS, pushAd } from "@/lib/adsense";
 
 interface AdSlotProps {
   slot: string;
