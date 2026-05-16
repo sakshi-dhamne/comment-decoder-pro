@@ -25,7 +25,6 @@ import { downloadJSON, downloadCSV } from "@/lib/downloadReport";
 import { useToast } from "@/hooks/use-toast";
 import ThemeToggle from "@/components/ThemeToggle";
 import { canAnalyze, recordAnalysis, getRemainingAnalyses, isPremium, FREE_DAILY_LIMIT, getUsedToday } from "@/lib/usageTracking";
-import { isDebugMode } from "@/lib/debugMode";
 import type { AnalysisResult } from "@/types/analysis";
 
 const Index = () => {
