@@ -144,4 +144,31 @@ function hash(s: string): number {
   return h;
 }
 
+interface AdsenseUnitProps {
+  slot: string;
+  slotId: string;
+  format: "horizontal" | "fluid" | "auto";
+  onClick: () => void;
+  ref: React.RefObject<HTMLDivElement | null>;
+}
+
+const AdsenseUnit = ({ ref, slot, slotId, format, onClick }: AdsenseUnitProps) => {
+  useEffect(() => {
+    pushAd();
+  }, [slotId]);
+
+  return (
+    <div ref={ref} onClick={onClick} className="w-full" data-ad-slot-name={slot}>
+      <ins
+        className="adsbygoogle"
+        style={{ display: "block" }}
+        data-ad-client={ADSENSE_CLIENT}
+        data-ad-slot={slotId}
+        data-ad-format={format === "horizontal" ? "horizontal" : "auto"}
+        data-full-width-responsive="true"
+      />
+    </div>
+  );
+};
+
 export default AdSlot;
