@@ -66,6 +66,19 @@ const AdSlot = ({ slot, variant = "native" }: AdSlotProps) => {
 
   const handleClick = () => trackAdEvent(slot, "click");
 
+  // Real AdSense unit when a slot ID is configured for this placement.
+  if (adsenseSlotId) {
+    return (
+      <AdsenseUnit
+        ref={ref}
+        slot={slot}
+        slotId={adsenseSlotId}
+        format={variant === "banner" ? "horizontal" : "fluid"}
+        onClick={handleClick}
+      />
+    );
+  }
+
   if (variant === "banner") {
     return (
       <motion.div
