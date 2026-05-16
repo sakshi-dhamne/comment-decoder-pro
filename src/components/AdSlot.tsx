@@ -43,6 +43,7 @@ const AdSlot = ({ slot, variant = "native" }: AdSlotProps) => {
   // Hide ads entirely for premium users — keeps logic ready for paid tier.
   if (isPremium()) return null;
 
+  const adsenseSlotId = ADSENSE_SLOTS[slot];
   const promo = PROMOS[Math.abs(hash(slot)) % PROMOS.length];
 
   // Track impression once when at least 50% visible.
