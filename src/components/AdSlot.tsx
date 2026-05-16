@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { ExternalLink, Sparkles } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { trackAdEvent, isPremium } from "@/lib/usageTracking";
+import { ADSENSE_CLIENT, ADSENSE_SLOTS, pushAd } from "@/lib/adsense";
 
 interface AdSlotProps {
   slot: string;
@@ -42,6 +43,7 @@ const AdSlot = ({ slot, variant = "native" }: AdSlotProps) => {
   // Hide ads entirely for premium users — keeps logic ready for paid tier.
   if (isPremium()) return null;
 
+  const adsenseSlotId = ADSENSE_SLOTS[slot];
   const promo = PROMOS[Math.abs(hash(slot)) % PROMOS.length];
 
   // Track impression once when at least 50% visible.
@@ -63,6 +65,19 @@ const AdSlot = ({ slot, variant = "native" }: AdSlotProps) => {
   }, [slot]);
 
   const handleClick = () => trackAdEvent(slot, "click");
+
+  // Real AdSense unit when a slot ID is configured for this placement.
+  if (adsenseSlotId) {
+    return (
+      <AdsenseUnit
+        ref={ref}
+        slot={slot}
+        slotId={adsenseSlotId}
+        format={variant === "banner" ? "horizontal" : "fluid"}
+        onClick={handleClick}
+      />
+    );
+  }
 
   if (variant === "banner") {
     return (
@@ -128,5 +143,32 @@ function hash(s: string): number {
   for (let i = 0; i < s.length; i++) h = (h << 5) - h + s.charCodeAt(i);
   return h;
 }
+
+interface AdsenseUnitProps {
+  slot: string;
+  slotId: string;
+  format: "horizontal" | "fluid" | "auto";
+  onClick: () => void;
+  ref: React.RefObject<HTMLDivElement | null>;
+}
+
+const AdsenseUnit = ({ ref, slot, slotId, format, onClick }: AdsenseUnitProps) => {
+  useEffect(() => {
+    pushAd();
+  }, [slotId]);
+
+  return (
+    <div ref={ref} onClick={onClick} className="w-full" data-ad-slot-name={slot}>
+      <ins
+        className="adsbygoogle"
+        style={{ display: "block" }}
+        data-ad-client={ADSENSE_CLIENT}
+        data-ad-slot={slotId}
+        data-ad-format={format === "horizontal" ? "horizontal" : "auto"}
+        data-full-width-responsive="true"
+      />
+    </div>
+  );
+};
 
 export default AdSlot;
