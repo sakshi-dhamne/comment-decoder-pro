@@ -25,6 +25,7 @@ import { downloadJSON, downloadCSV } from "@/lib/downloadReport";
 import { useToast } from "@/hooks/use-toast";
 import ThemeToggle from "@/components/ThemeToggle";
 import { canAnalyze, recordAnalysis, getRemainingAnalyses, isPremium, FREE_DAILY_LIMIT, getUsedToday } from "@/lib/usageTracking";
+import { FEATURE_USAGE_LIMITS } from "@/lib/featureFlags";
 import type { AnalysisResult } from "@/types/analysis";
 
 const Index = () => {
@@ -33,10 +34,11 @@ const Index = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reportRefreshKey, setReportRefreshKey] = useState(0);
-  const [limitReached, setLimitReached] = useState(!canAnalyze());
+  const [limitReached, setLimitReached] = useState(FEATURE_USAGE_LIMITS && !canAnalyze());
   const { toast } = useToast();
 
   const guard = (): boolean => {
+    if (!FEATURE_USAGE_LIMITS) return true;
     if (!canAnalyze()) {
       setLimitReached(true);
       toast({
@@ -63,8 +65,10 @@ const Index = () => {
       if (fnError) throw new Error(fnError.message);
       if (data?.error) throw new Error(data.error);
       setResult(data);
-      recordAnalysis();
-      setLimitReached(!canAnalyze());
+      if (FEATURE_USAGE_LIMITS) {
+        recordAnalysis();
+        setLimitReached(!canAnalyze());
+      }
       setReportRefreshKey((k) => k + 1);
     } catch (e: any) {
       const msg = e?.message || "Failed to analyze comments";
@@ -93,8 +97,10 @@ const Index = () => {
       } else {
         setResult(data);
       }
-      recordAnalysis();
-      setLimitReached(!canAnalyze());
+      if (FEATURE_USAGE_LIMITS) {
+        recordAnalysis();
+        setLimitReached(!canAnalyze());
+      }
     } catch (e: any) {
       const msg = e?.message || "Failed to analyze";
       setError(msg);
@@ -134,7 +140,7 @@ const Index = () => {
             <ThemeToggle />
           </div>
           <MultiUrlInput onSubmitSingle={handleAnalyzeSingle} onSubmitMultiple={handleAnalyzeMultiple} isLoading={isLoading} />
-          {!isPremium() && (
+          {FEATURE_USAGE_LIMITS && !isPremium() && (
             <p className="mt-3 text-xs text-muted-foreground">
               {getUsedToday()}/{FREE_DAILY_LIMIT} free analyses used today
             </p>
@@ -147,7 +153,7 @@ const Index = () => {
         {!isPremium() && !isLoading && <AdSlot slot="below_search" variant="banner" />}
 
         {/* Limit reached upgrade prompt */}
-        {limitReached && !isPremium() && !isLoading && <UpgradePrompt variant="card" />}
+        {FEATURE_USAGE_LIMITS && limitReached && !isPremium() && !isLoading && <UpgradePrompt variant="card" />}
 
         {/* Loading */}
         {isLoading && (

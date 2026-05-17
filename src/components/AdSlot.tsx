@@ -4,6 +4,7 @@ import { ExternalLink, Sparkles } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { trackAdEvent, isPremium } from "@/lib/usageTracking";
 import { ADSENSE_CLIENT, ADSENSE_SLOTS, pushAd } from "@/lib/adsense";
+import { FEATURE_USAGE_LIMITS } from "@/lib/featureFlags";
 
 interface AdSlotProps {
   slot: string;
@@ -78,6 +79,10 @@ const AdSlot = ({ slot, variant = "native" }: AdSlotProps) => {
       />
     );
   }
+
+  // No real ad configured for this slot. The "Go Pro" sponsored fallback
+  // is part of the upsell flow and stays hidden unless usage-limits flag is on.
+  if (!FEATURE_USAGE_LIMITS) return null;
 
   if (variant === "banner") {
     return (
