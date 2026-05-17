@@ -80,6 +80,10 @@ const AdSlot = ({ slot, variant = "native" }: AdSlotProps) => {
     );
   }
 
+  // No real ad configured for this slot. The "Go Pro" sponsored fallback
+  // is part of the upsell flow and stays hidden unless usage-limits flag is on.
+  if (!FEATURE_USAGE_LIMITS) return null;
+
   if (variant === "banner") {
     return (
       <motion.div
