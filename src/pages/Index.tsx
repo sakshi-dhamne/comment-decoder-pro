@@ -97,8 +97,10 @@ const Index = () => {
       } else {
         setResult(data);
       }
-      recordAnalysis();
-      setLimitReached(!canAnalyze());
+      if (FEATURE_USAGE_LIMITS) {
+        recordAnalysis();
+        setLimitReached(!canAnalyze());
+      }
     } catch (e: any) {
       const msg = e?.message || "Failed to analyze";
       setError(msg);
