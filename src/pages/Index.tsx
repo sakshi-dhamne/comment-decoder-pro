@@ -140,7 +140,7 @@ const Index = () => {
             <ThemeToggle />
           </div>
           <MultiUrlInput onSubmitSingle={handleAnalyzeSingle} onSubmitMultiple={handleAnalyzeMultiple} isLoading={isLoading} />
-          {!isPremium() && (
+          {FEATURE_USAGE_LIMITS && !isPremium() && (
             <p className="mt-3 text-xs text-muted-foreground">
               {getUsedToday()}/{FREE_DAILY_LIMIT} free analyses used today
             </p>
