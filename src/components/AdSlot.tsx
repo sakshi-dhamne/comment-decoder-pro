@@ -4,6 +4,7 @@ import { ExternalLink, Sparkles } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { trackAdEvent, isPremium } from "@/lib/usageTracking";
 import { ADSENSE_CLIENT, ADSENSE_SLOTS, pushAd } from "@/lib/adsense";
+import { FEATURE_USAGE_LIMITS } from "@/lib/featureFlags";
 
 interface AdSlotProps {
   slot: string;
