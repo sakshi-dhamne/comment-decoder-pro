@@ -34,10 +34,11 @@ const Index = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reportRefreshKey, setReportRefreshKey] = useState(0);
-  const [limitReached, setLimitReached] = useState(!canAnalyze());
+  const [limitReached, setLimitReached] = useState(FEATURE_USAGE_LIMITS && !canAnalyze());
   const { toast } = useToast();
 
   const guard = (): boolean => {
+    if (!FEATURE_USAGE_LIMITS) return true;
     if (!canAnalyze()) {
       setLimitReached(true);
       toast({
