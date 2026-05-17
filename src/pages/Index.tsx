@@ -153,7 +153,7 @@ const Index = () => {
         {!isPremium() && !isLoading && <AdSlot slot="below_search" variant="banner" />}
 
         {/* Limit reached upgrade prompt */}
-        {limitReached && !isPremium() && !isLoading && <UpgradePrompt variant="card" />}
+        {FEATURE_USAGE_LIMITS && limitReached && !isPremium() && !isLoading && <UpgradePrompt variant="card" />}
 
         {/* Loading */}
         {isLoading && (
