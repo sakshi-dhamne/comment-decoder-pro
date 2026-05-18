@@ -587,6 +587,24 @@ Deno.serve(async (req) => {
       const cached = cachedRows?.[0] ?? null;
 
       if (cached && (Date.now() - new Date(cached.created_at).getTime() < CACHE_MS)) {
+        // Save a copy for the current session so it shows up in their Recent Reports
+        if (cached.session_id !== sessionId) {
+          try {
+            const r = cached.result as any;
+            await sb.from("analysis_reports").upsert({
+              video_id: videoId,
+              video_url: urls[0],
+              video_title: r?.video?.title || null,
+              channel_title: r?.video?.channelTitle || null,
+              thumbnail: r?.video?.thumbnail || null,
+              result: r,
+              session_id: sessionId,
+              created_at: new Date().toISOString(),
+            }, { onConflict: "video_id,session_id" });
+          } catch (e) {
+            console.error("Failed to mirror cached report:", e);
+          }
+        }
         return new Response(JSON.stringify(cached.result), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
