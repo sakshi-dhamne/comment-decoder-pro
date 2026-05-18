@@ -399,6 +399,8 @@ const Index = () => {
             refreshKey={reportRefreshKey}
           />
         )}
+
+        <ReviewForm />
       </main>
     </div>
   );
