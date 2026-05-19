@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { AnalysisResult } from "@/types/analysis";
+import { getSessionId } from "@/lib/sessionId";
 
 export async function saveReport(result: AnalysisResult, videoUrl: string) {
   // Extract video ID from URL
@@ -13,5 +14,6 @@ export async function saveReport(result: AnalysisResult, videoUrl: string) {
     channel_title: result.video?.channelTitle || null,
     thumbnail: result.video?.thumbnail || null,
     result: result as any,
+    session_id: getSessionId(),
   });
 }
