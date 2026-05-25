@@ -413,8 +413,6 @@ const Index = () => {
           </nav>
         </div>
       </footer>
-      <main className="hidden">
-      </main>
     </div>
   );
 };
