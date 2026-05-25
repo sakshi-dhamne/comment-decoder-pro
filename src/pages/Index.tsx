@@ -402,6 +402,19 @@ const Index = () => {
 
         <ReviewForm />
       </main>
+      <footer className="border-t border-border mt-8 py-6 text-sm text-muted-foreground">
+        <div className="max-w-5xl mx-auto px-4 flex flex-wrap items-center justify-between gap-4">
+          <p>© {new Date().getFullYear()} Comment Decoder Pro</p>
+          <nav className="flex flex-wrap gap-4">
+            <a href="/about" className="hover:text-foreground transition-colors">About</a>
+            <a href="/blog" className="hover:text-foreground transition-colors">Blog</a>
+            <a href="/privacy" className="hover:text-foreground transition-colors">Privacy</a>
+            <a href="/terms" className="hover:text-foreground transition-colors">Terms</a>
+          </nav>
+        </div>
+      </footer>
+      <main className="hidden">
+      </main>
     </div>
   );
 };
