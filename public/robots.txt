@@ -12,3 +12,5 @@ Allow: /
 
 User-agent: *
 Allow: /
+
+Sitemap: https://comment-decoder-pro.lovable.app/sitemap.xml
