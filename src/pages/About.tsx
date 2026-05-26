@@ -28,14 +28,6 @@ const About = () => (
         <li>Anyone who has stared at 2,000 comments and given up</li>
       </ul>
 
-      <h2 className="text-2xl font-semibold mt-10 mb-3">How we built it</h2>
-      <p className="mb-4">
-        The app runs on a modern serverless stack. Comments come from the official
-        YouTube Data API. Analysis is performed by Google Gemini Flash models through
-        a managed AI gateway. Results are cached for 24 hours so repeat lookups are
-        instant and cost-efficient.
-      </p>
-
       <h2 className="text-2xl font-semibold mt-10 mb-3">Contact</h2>
       <p>
         Found a bug or have a feature request? Use the feedback form on the home page,
