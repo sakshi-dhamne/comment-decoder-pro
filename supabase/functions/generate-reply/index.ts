@@ -7,7 +7,7 @@ import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 const BodySchema = z.object({
   commentText: z.string().min(1).max(2000),
   tone: z.enum(["friendly", "professional", "witty"]),
-  videoTitle: z.string().optional(),
+  videoTitle: z.string().max(200).optional(),
 });
 
 Deno.serve(async (req) => {
