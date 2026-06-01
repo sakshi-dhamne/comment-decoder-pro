@@ -550,7 +550,7 @@ async function analyzeVideo(videoUrl: string, ytKey: string, aiKey: string | und
     topics,
     keywords,
     insights,
-    comments: analyzed.slice(0, 200),
+    comments: analyzed,
     // tokenUsage intentionally omitted from public response (internal metric)
   };
 }
