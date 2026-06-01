@@ -281,58 +281,77 @@ async function generateInsights(
   apiKey: string
 ) {
   const total = comments.length;
-  const sampleComments = comments.slice(0, 100).map(c => `[${c.sentiment}/${c.category}] ${c.text.slice(0, 150)}`).join("\n");
+  const sampleComments = comments.slice(0, 60).map(c => `[${c.sentiment}/${c.category}] ${c.text.slice(0, 120)}`).join("\n");
   const topTopics = topicsData.slice(0, 10).map(t => `"${t.topic}" (${t.count})`).join(", ");
 
   const userContent = `Analyze ${total} comments (${sentiment.positive} positive, ${sentiment.negative} negative, ${sentiment.neutral} neutral).\n\nTop topics: ${topTopics}\n\nComments:\n${sampleComments}`;
   const insightInputTokens = estimateTokens(userContent) + 80;
   tokenTracker.inputTokens += insightInputTokens;
-  tokenTracker.aiCalls++;
 
-  try {
+  const tools = [{
+    type: "function",
+    function: {
+      name: "provide_insights",
+      description: "Provide structured insights, content ideas, and trend analysis from YouTube comments",
+      parameters: {
+        type: "object",
+        properties: {
+          summary: { type: "string" },
+          likes: { type: "array", items: { type: "string" }, description: "3-5 things audience likes" },
+          dislikes: { type: "array", items: { type: "string" }, description: "3-5 things audience dislikes" },
+          complaints: { type: "array", items: { type: "string" }, description: "Top 3-5 complaints" },
+          recommendations: { type: "array", items: { type: "string" }, description: "3-5 actionable recommendations" },
+          nextSteps: { type: "array", items: { type: "object", properties: { action: { type: "string" }, priority: { type: "string", enum: ["high", "medium", "low"] }, rationale: { type: "string" } }, required: ["action", "priority", "rationale"] }, description: "5 'What to do next' actions with priority and rationale" },
+          contentIdeas: { type: "array", items: { type: "object", properties: { title: { type: "string" }, description: { type: "string" }, type: { type: "string", enum: ["video", "short", "community_post", "live_stream"] } }, required: ["title", "description", "type"] }, description: "5 content ideas from audience questions and requests" },
+          faqs: { type: "array", items: { type: "object", properties: { question: { type: "string" }, answer: { type: "string" } }, required: ["question", "answer"] }, description: "5 FAQs from comments with suggested answers" },
+          trendingTopics: { type: "array", items: { type: "object", properties: { topic: { type: "string" }, signal: { type: "string", enum: ["rising", "steady", "declining"] }, description: { type: "string" } }, required: ["topic", "signal", "description"] }, description: "5-8 trending topics with signal direction" },
+        },
+        required: ["summary", "likes", "dislikes", "complaints", "recommendations", "nextSteps", "contentIdeas", "faqs", "trendingTopics"],
+        additionalProperties: false,
+      },
+    },
+  }];
+
+  const messages = [
+    { role: "system", content: "You analyze YouTube comments and provide actionable insights, content strategy, and trend analysis for creators. Be specific and data-driven. For nextSteps, give concrete actions the creator should take immediately." },
+    { role: "user", content: userContent },
+  ];
+
+  const tryModel = async (model: string) => {
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        tools: [{
-          type: "function",
-          function: {
-            name: "provide_insights",
-            description: "Provide structured insights, content ideas, and trend analysis from YouTube comments",
-            parameters: {
-              type: "object",
-              properties: {
-                summary: { type: "string" },
-                likes: { type: "array", items: { type: "string" }, description: "3-5 things audience likes" },
-                dislikes: { type: "array", items: { type: "string" }, description: "3-5 things audience dislikes" },
-                complaints: { type: "array", items: { type: "string" }, description: "Top 3-5 complaints" },
-                recommendations: { type: "array", items: { type: "string" }, description: "3-5 actionable recommendations" },
-                nextSteps: { type: "array", items: { type: "object", properties: { action: { type: "string" }, priority: { type: "string", enum: ["high", "medium", "low"] }, rationale: { type: "string" } }, required: ["action", "priority", "rationale"] }, description: "5 'What to do next' actions with priority and rationale" },
-                contentIdeas: { type: "array", items: { type: "object", properties: { title: { type: "string" }, description: { type: "string" }, type: { type: "string", enum: ["video", "short", "community_post", "live_stream"] } }, required: ["title", "description", "type"] }, description: "5 content ideas from audience questions and requests" },
-                faqs: { type: "array", items: { type: "object", properties: { question: { type: "string" }, answer: { type: "string" } }, required: ["question", "answer"] }, description: "5 FAQs from comments with suggested answers" },
-                trendingTopics: { type: "array", items: { type: "object", properties: { topic: { type: "string" }, signal: { type: "string", enum: ["rising", "steady", "declining"] }, description: { type: "string" } }, required: ["topic", "signal", "description"] }, description: "5-8 trending topics with signal direction" },
-              },
-              required: ["summary", "likes", "dislikes", "complaints", "recommendations", "nextSteps", "contentIdeas", "faqs", "trendingTopics"],
-              additionalProperties: false,
-            },
-          },
-        }],
+        model,
+        tools,
         tool_choice: { type: "function", function: { name: "provide_insights" } },
-        messages: [
-          { role: "system", content: "You analyze YouTube comments and provide actionable insights, content strategy, and trend analysis for creators. Be specific and data-driven. For nextSteps, give concrete actions the creator should take immediately." },
-          { role: "user", content: userContent },
-        ],
+        messages,
       }),
     });
-    if (!response.ok) throw new Error("AI error");
+    if (!response.ok) {
+      const errBody = await response.text().catch(() => "");
+      console.error(`Insights AI gateway error (${model}): status=${response.status} body=${errBody.slice(0, 500)}`);
+      throw new Error(`AI gateway ${response.status}`);
+    }
     const data = await response.json();
     const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
-    if (toolCall) {
-      tokenTracker.outputTokens += estimateTokens(toolCall.function.arguments);
-      return JSON.parse(toolCall.function.arguments);
+    if (!toolCall) throw new Error("No tool call");
+    tokenTracker.outputTokens += estimateTokens(toolCall.function.arguments);
+    return JSON.parse(toolCall.function.arguments);
+  };
+
+  tokenTracker.aiCalls++;
+  try {
+    return await tryModel("google/gemini-2.5-flash");
+  } catch (primaryErr) {
+    console.error("Primary insights model failed, trying fallback:", primaryErr);
+    try {
+      tokenTracker.aiCalls++;
+      return await tryModel("google/gemini-2.5-flash-lite");
+    } catch (e) {
+      throw e;
     }
-    throw new Error("No tool call");
+  }
   } catch (e) {
     console.error("Insights generation failed:", e);
     const pct = (n: number) => Math.round(n / total * 100);
