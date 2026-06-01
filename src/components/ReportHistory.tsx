@@ -29,13 +29,10 @@ const ReportHistory = ({ onLoad, refreshKey }: ReportHistoryProps) => {
   const fetchReports = async () => {
     setLoading(true);
     const sessionId = getSessionId();
-    const { data } = await supabase
-      .from("analysis_reports")
-      .select("*")
-      .eq("session_id", sessionId)
-      .order("created_at", { ascending: false })
-      .limit(10);
-    setReports((data as unknown as Report[]) || []);
+    const { data } = await supabase.functions.invoke("manage-reports", {
+      body: { action: "list", sessionId },
+    });
+    setReports(((data as any)?.reports as Report[]) || []);
     setLoading(false);
   };
 
@@ -44,13 +41,16 @@ const ReportHistory = ({ onLoad, refreshKey }: ReportHistoryProps) => {
   }, [refreshKey]);
 
   const deleteReport = async (id: string) => {
-    await supabase.from("analysis_reports").delete().eq("id", id).eq("session_id", getSessionId());
+    await supabase.functions.invoke("manage-reports", {
+      body: { action: "delete", sessionId: getSessionId(), reportId: id },
+    });
     setReports((prev) => prev.filter((r) => r.id !== id));
   };
 
   const clearAll = async () => {
-    const sessionId = getSessionId();
-    await supabase.from("analysis_reports").delete().eq("session_id", sessionId);
+    await supabase.functions.invoke("manage-reports", {
+      body: { action: "deleteAll", sessionId: getSessionId() },
+    });
     setReports([]);
   };
 
