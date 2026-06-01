@@ -340,18 +340,15 @@ async function generateInsights(
     return JSON.parse(toolCall.function.arguments);
   };
 
-  tokenTracker.aiCalls++;
   try {
-    return await tryModel("google/gemini-2.5-flash");
-  } catch (primaryErr) {
-    console.error("Primary insights model failed, trying fallback:", primaryErr);
+    tokenTracker.aiCalls++;
     try {
+      return await tryModel("google/gemini-2.5-flash");
+    } catch (primaryErr) {
+      console.error("Primary insights model failed, trying fallback:", primaryErr);
       tokenTracker.aiCalls++;
       return await tryModel("google/gemini-2.5-flash-lite");
-    } catch (e) {
-      throw e;
     }
-  }
   } catch (e) {
     console.error("Insights generation failed:", e);
     const pct = (n: number) => Math.round(n / total * 100);
