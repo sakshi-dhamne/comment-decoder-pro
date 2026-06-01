@@ -26,12 +26,17 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const parsed = BodySchema.safeParse(body);
     if (!parsed.success) {
-      return new Response(JSON.stringify({ error: "Invalid request", details: parsed.error.flatten() }), {
+      console.error("Validation error:", parsed.error.flatten());
+      return new Response(JSON.stringify({ error: "Invalid request" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const { commentText, tone, videoTitle } = parsed.data;
+    // Sanitize videoTitle to mitigate prompt injection: strip newlines/quotes, cap length
+    const safeVideoTitle = videoTitle
+      ? videoTitle.replace(/[\r\n"`]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 200)
+      : "";
 
     const toneInstructions: Record<string, string> = {
       friendly: "Be warm, appreciative, and use a casual conversational tone. Include an emoji or two.",
