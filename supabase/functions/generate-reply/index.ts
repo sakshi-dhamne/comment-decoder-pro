@@ -95,7 +95,7 @@ Deno.serve(async (req) => {
     throw new Error("No tool call response");
   } catch (error) {
     console.error("Reply generation error:", error);
-    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }), {
+    return new Response(JSON.stringify({ error: "Failed to generate reply" }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

@@ -34,7 +34,10 @@ async function fetchComments(videoId: string, apiKey: string): Promise<any[]> {
   while (page < 5) {
     const url = `https://www.googleapis.com/youtube/v3/commentThreads?part=snippet&videoId=${videoId}&maxResults=100&order=relevance&textFormat=plainText${pageToken ? `&pageToken=${pageToken}` : ""}&key=${apiKey}`;
     const res = await fetch(url);
-    if (!res.ok) throw new Error(`YouTube API error [${res.status}]: ${await res.text()}`);
+    if (!res.ok) {
+      console.error(`YouTube API error [${res.status}]:`, await res.text());
+      throw new Error("Failed to fetch YouTube comments");
+    }
     const data = await res.json();
     for (const item of data.items || []) {
       const snippet = item.snippet?.topLevelComment?.snippet;
@@ -532,14 +535,7 @@ async function analyzeVideo(videoUrl: string, ytKey: string, aiKey: string | und
     keywords,
     insights,
     comments: analyzed.slice(0, 200),
-    tokenUsage: {
-      inputTokens: tokenTracker.inputTokens,
-      outputTokens: tokenTracker.outputTokens,
-      totalTokens: tokenTracker.inputTokens + tokenTracker.outputTokens,
-      aiCalls: tokenTracker.aiCalls,
-      skippedByKeyword: tokenTracker.skippedByKeyword,
-      skippedByDedup: tokenTracker.skippedByDedup,
-    },
+    // tokenUsage intentionally omitted from public response (internal metric)
   };
 }
 
@@ -639,7 +635,8 @@ Deno.serve(async (req) => {
         try {
           return await analyzeVideo(url, YOUTUBE_API_KEY, LOVABLE_API_KEY);
         } catch (e) {
-          return { error: e instanceof Error ? e.message : "Failed", videoUrl: url };
+          console.error("Comparison video failed:", e);
+          return { error: "Failed to analyze video", videoUrl: url };
         }
       })
     );
@@ -649,7 +646,7 @@ Deno.serve(async (req) => {
     });
   } catch (error) {
     console.error("Error:", error);
-    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }), {
+    return new Response(JSON.stringify({ error: "An error occurred while processing your request" }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
