@@ -169,7 +169,7 @@ async function analyzeSentimentBatch(
   const aiResults = new Map<number, "positive" | "negative" | "neutral">();
 
   await Promise.all(batches.map(async (batch) => {
-    const numbered = batch.map((c, idx) => `${idx + 1}. ${c.text.slice(0, 150)}`).join("\n");
+    const numbered = batch.map((c, idx) => `${idx + 1}. ${sanitizeForPrompt(c.text)}`).join("\n");
     const inputTokens = estimateTokens(numbered) + 25; // +system prompt
     tokenTracker.inputTokens += inputTokens;
     tokenTracker.aiCalls++;
