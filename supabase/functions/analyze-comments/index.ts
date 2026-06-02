@@ -241,7 +241,7 @@ async function categorizeComments(
   const catResults = new Map<number, "praise" | "complaint" | "question" | "suggestion" | "spam" | "other">();
 
   await Promise.all(batches.map(async (batch) => {
-    const numbered = batch.map((c, idx) => `${idx + 1}. ${c.text.slice(0, 150)}`).join("\n");
+    const numbered = batch.map((c, idx) => `${idx + 1}. ${sanitizeForPrompt(c.text)}`).join("\n");
     const inputTokens = estimateTokens(numbered) + 30;
     tokenTracker.inputTokens += inputTokens;
     tokenTracker.aiCalls++;
