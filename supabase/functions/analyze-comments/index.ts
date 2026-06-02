@@ -76,15 +76,28 @@ function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4);
 }
 
+// Sanitize a single comment for inclusion in a numbered AI prompt:
+// strip control chars/newlines/quotes that would break line-based parsing or enable prompt injection.
+function sanitizeForPrompt(text: string, max = 150): string {
+  return text
+    .replace(/[\r\n\t]+/g, " ")
+    .replace(/[`"]+/g, "'")
+    .replace(/\s{2,}/g, " ")
+    .trim()
+    .slice(0, max);
+}
+
 // Text preprocessing: strip URLs, repeated chars, filler
 function preprocessText(text: string): string {
   return text
     .replace(/https?:\/\/\S+/g, "")           // URLs
     .replace(/(.)\1{3,}/g, "$1$1")             // repeated chars (e.g. "sooooo" → "soo")
     .replace(/\b(um|uh|like|basically|literally|actually|honestly)\b/gi, "")
+    .replace(/[\r\n\t]+/g, " ")
     .replace(/\s{2,}/g, " ")
     .trim();
 }
+
 
 // Strong keyword match for obvious sentiment (high confidence only)
 function strongKeywordSentiment(text: string): "positive" | "negative" | null {
@@ -156,7 +169,7 @@ async function analyzeSentimentBatch(
   const aiResults = new Map<number, "positive" | "negative" | "neutral">();
 
   await Promise.all(batches.map(async (batch) => {
-    const numbered = batch.map((c, idx) => `${idx + 1}. ${c.text.slice(0, 150)}`).join("\n");
+    const numbered = batch.map((c, idx) => `${idx + 1}. ${sanitizeForPrompt(c.text)}`).join("\n");
     const inputTokens = estimateTokens(numbered) + 25; // +system prompt
     tokenTracker.inputTokens += inputTokens;
     tokenTracker.aiCalls++;
@@ -228,7 +241,7 @@ async function categorizeComments(
   const catResults = new Map<number, "praise" | "complaint" | "question" | "suggestion" | "spam" | "other">();
 
   await Promise.all(batches.map(async (batch) => {
-    const numbered = batch.map((c, idx) => `${idx + 1}. ${c.text.slice(0, 150)}`).join("\n");
+    const numbered = batch.map((c, idx) => `${idx + 1}. ${sanitizeForPrompt(c.text)}`).join("\n");
     const inputTokens = estimateTokens(numbered) + 30;
     tokenTracker.inputTokens += inputTokens;
     tokenTracker.aiCalls++;
