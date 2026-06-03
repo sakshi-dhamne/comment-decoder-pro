@@ -40,8 +40,22 @@ const AutoReplyGenerator = ({ comment, videoTitle, onClose }: AutoReplyGenerator
       if (error) throw new Error(error.message);
       if (data?.error) throw new Error(data.error);
       setReplies(data.replies || []);
+      if (data?.fallback) {
+        toast({
+          title: "Using backup replies",
+          description: data.warning || "AI is busy, so backup replies were shown instead.",
+        });
+      }
     } catch (e: any) {
-      toast({ title: "Error", description: e?.message || "Failed to generate replies", variant: "destructive" });
+      const message = String(e?.message || "");
+      const isBusy = message.includes("429") || message.toLowerCase().includes("service is busy");
+      toast({
+        title: isBusy ? "AI is busy" : "Error",
+        description: isBusy
+          ? "Please wait a few seconds and try again. Your page is still fine."
+          : e?.message || "Failed to generate replies",
+        variant: isBusy ? "default" : "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
