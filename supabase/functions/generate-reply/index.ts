@@ -10,6 +10,30 @@ const BodySchema = z.object({
   videoTitle: z.string().max(200).optional(),
 });
 
+const jsonResponse = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+
+const fallbackReplies: Record<"friendly" | "professional" | "witty", string[]> = {
+  friendly: [
+    "Thanks so much for sharing your thoughts! 😊 I really appreciate you watching and joining the conversation.",
+    "I appreciate the comment! Glad to have you here, and thanks for taking the time to watch. 🙌",
+    "Thanks for being part of the community! Your support and feedback mean a lot. 😊",
+  ],
+  professional: [
+    "Thank you for your comment. I appreciate you taking the time to watch and share your perspective.",
+    "Thanks for the feedback. I appreciate your engagement and will keep this in mind for future videos.",
+    "Thank you for watching and contributing to the discussion. Your input is appreciated.",
+  ],
+  witty: [
+    "Now that’s a comment worth pinning in spirit, if not literally. Thanks for watching!",
+    "Appreciate you dropping by the comments section — the algorithm sends its regards.",
+    "Thanks for the comment! The pixels and I both appreciate the support.",
+  ],
+};
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -18,18 +42,14 @@ Deno.serve(async (req) => {
   try {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
-      return new Response(JSON.stringify({ error: "AI not configured" }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse({ replies: fallbackReplies.friendly, fallback: true, warning: "AI is not configured, so fallback replies were used." });
     }
 
     const body = await req.json();
     const parsed = BodySchema.safeParse(body);
     if (!parsed.success) {
       console.error("Validation error:", parsed.error.flatten());
-      return new Response(JSON.stringify({ error: "Invalid request" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse({ error: "Invalid request" }, 400);
     }
 
     const { commentText, tone, videoTitle } = parsed.data;
@@ -95,14 +115,18 @@ Deno.serve(async (req) => {
 
     if (response.status === 429) {
       console.error("AI gateway rate limited (429)");
-      return new Response(JSON.stringify({ error: "Service is busy. Please try again in a moment." }), {
-        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      return jsonResponse({
+        replies: fallbackReplies[tone],
+        fallback: true,
+        warning: "AI is busy right now, so fallback replies were generated instead.",
       });
     }
     if (response.status === 402) {
       console.error("AI gateway returned 402 (credits exhausted)");
-      return new Response(JSON.stringify({ error: "Service temporarily unavailable. Please try again later." }), {
-        status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      return jsonResponse({
+        replies: fallbackReplies[tone],
+        fallback: true,
+        warning: "AI replies are temporarily unavailable, so fallback replies were generated instead.",
       });
     }
     if (!response.ok) throw new Error("AI error");
@@ -111,16 +135,12 @@ Deno.serve(async (req) => {
     const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
     if (toolCall) {
       const { replies } = JSON.parse(toolCall.function.arguments);
-      return new Response(JSON.stringify({ replies }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse({ replies });
     }
 
     throw new Error("No tool call response");
   } catch (error) {
     console.error("Reply generation error:", error);
-    return new Response(JSON.stringify({ error: "Failed to generate reply" }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonResponse({ error: "Failed to generate reply" }, 500);
   }
 });
