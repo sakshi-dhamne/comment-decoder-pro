@@ -11,19 +11,19 @@ const AIRateLimitBanner = () => {
   const pct = Math.max(0, Math.min(100, ((DEFAULT_COOLDOWN_SECONDS - secondsLeft) / DEFAULT_COOLDOWN_SECONDS) * 100));
 
   return (
-    <Card className="border-warning/40 bg-warning/5">
+    <Card className="border-primary/30 bg-primary/5">
       <CardContent className="py-3 px-4 flex items-center gap-3">
-        <AlertTriangle className="w-4 h-4 text-warning shrink-0" />
+        <AlertTriangle className="w-4 h-4 text-primary shrink-0" />
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-foreground">
-            AI rate limit reached
+            AI rate limit reached — quota temporarily exhausted
           </p>
           <p className="text-xs text-muted-foreground">
-            Lovable AI Gateway is cooling down. New AI requests will resume shortly.
+            The AI service is cooling down. New AI requests will resume automatically when the timer hits zero.
           </p>
           <Progress value={pct} className="h-1 mt-2" />
         </div>
-        <div className="flex items-center gap-1.5 text-sm font-mono tabular-nums text-warning">
+        <div className="flex items-center gap-1.5 text-sm font-mono tabular-nums text-primary">
           <Clock className="w-3.5 h-3.5" />
           {secondsLeft}s
         </div>
