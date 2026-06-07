@@ -2,9 +2,11 @@ import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Copy, Check, MessageSquareReply, Loader2 } from "lucide-react";
+import { Copy, Check, MessageSquareReply, Loader2, Clock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { startCooldown } from "@/lib/rateLimitStore";
+import { useCooldown } from "@/hooks/useCooldown";
 
 interface AutoReplyGeneratorProps {
   comment: {
@@ -29,8 +31,10 @@ const AutoReplyGenerator = ({ comment, videoTitle, onClose }: AutoReplyGenerator
   const [isLoading, setIsLoading] = useState(false);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   const { toast } = useToast();
+  const cooldown = useCooldown();
 
   const generateReplies = async () => {
+    if (cooldown.active) return;
     setIsLoading(true);
     setReplies([]);
     try {
@@ -41,6 +45,7 @@ const AutoReplyGenerator = ({ comment, videoTitle, onClose }: AutoReplyGenerator
       if (data?.error) throw new Error(data.error);
       setReplies(data.replies || []);
       if (data?.fallback) {
+        startCooldown();
         toast({
           title: "Using backup replies",
           description: data.warning || "AI is busy, so backup replies were shown instead.",
@@ -49,10 +54,11 @@ const AutoReplyGenerator = ({ comment, videoTitle, onClose }: AutoReplyGenerator
     } catch (e: any) {
       const message = String(e?.message || "");
       const isBusy = message.includes("429") || message.toLowerCase().includes("service is busy");
+      if (isBusy) startCooldown();
       toast({
         title: isBusy ? "AI is busy" : "Error",
         description: isBusy
-          ? "Please wait a few seconds and try again. Your page is still fine."
+          ? "Rate limit hit. A cooldown timer is now showing on the button."
           : e?.message || "Failed to generate replies",
         variant: isBusy ? "default" : "destructive",
       });
@@ -100,10 +106,19 @@ const AutoReplyGenerator = ({ comment, videoTitle, onClose }: AutoReplyGenerator
         ))}
       </div>
 
-      <Button onClick={generateReplies} disabled={isLoading} size="sm" className="w-full">
+      <Button
+        onClick={generateReplies}
+        disabled={isLoading || cooldown.active}
+        size="sm"
+        className="w-full"
+      >
         {isLoading ? (
           <>
             <Loader2 className="w-3 h-3 mr-1 animate-spin" /> Generating...
+          </>
+        ) : cooldown.active ? (
+          <>
+            <Clock className="w-3 h-3 mr-1" /> AI cooling down — retry in {cooldown.secondsLeft}s
           </>
         ) : (
           <>

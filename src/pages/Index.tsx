@@ -22,11 +22,13 @@ import TrendDetection from "@/components/TrendDetection";
 import TokenUsagePanel from "@/components/TokenUsagePanel";
 import AdSlot from "@/components/AdSlot";
 import UpgradePrompt from "@/components/UpgradePrompt";
+import AIRateLimitBanner from "@/components/AIRateLimitBanner";
 import { downloadJSON, downloadCSV } from "@/lib/downloadReport";
 import { useToast } from "@/hooks/use-toast";
 import ThemeToggle from "@/components/ThemeToggle";
 import { canAnalyze, recordAnalysis, getRemainingAnalyses, isPremium, FREE_DAILY_LIMIT, getUsedToday } from "@/lib/usageTracking";
 import { FEATURE_USAGE_LIMITS } from "@/lib/featureFlags";
+import { startCooldown } from "@/lib/rateLimitStore";
 import type { AnalysisResult } from "@/types/analysis";
 
 const Index = () => {
@@ -73,6 +75,9 @@ const Index = () => {
       setReportRefreshKey((k) => k + 1);
     } catch (e: any) {
       const msg = e?.message || "Failed to analyze comments";
+      if (msg.includes("429") || msg.toLowerCase().includes("busy") || msg.toLowerCase().includes("rate limit")) {
+        startCooldown();
+      }
       setError(msg);
       toast({ title: "Error", description: msg, variant: "destructive" });
     } finally {
@@ -104,6 +109,9 @@ const Index = () => {
       }
     } catch (e: any) {
       const msg = e?.message || "Failed to analyze";
+      if (msg.includes("429") || msg.toLowerCase().includes("busy") || msg.toLowerCase().includes("rate limit")) {
+        startCooldown();
+      }
       setError(msg);
       toast({ title: "Error", description: msg, variant: "destructive" });
     } finally {
@@ -150,6 +158,9 @@ const Index = () => {
       </header>
 
       <main className="container max-w-5xl mx-auto py-8 px-4 space-y-6">
+        {/* AI gateway rate-limit countdown */}
+        <AIRateLimitBanner />
+
         {/* Ad below search bar */}
         {!isPremium() && !isLoading && <AdSlot slot="below_search" variant="banner" />}
 
