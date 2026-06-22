@@ -114,9 +114,9 @@ const AutoReplyGenerator = ({ comment, videoTitle, onClose }: AutoReplyGenerator
       if (!data?.fallback) {
         recordReplyGeneration();
       }
-      setQuotaTick((x) => x + 1);
 
       if (data?.fallback) {
+
         setUsedFallback(true);
         startCooldown(typeof data?.retryAfter === "number" ? data.retryAfter : undefined);
         toast({
