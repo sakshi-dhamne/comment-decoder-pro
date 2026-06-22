@@ -1,12 +1,22 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Copy, Check, MessageSquareReply, Loader2, Clock } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { Copy, Check, MessageSquareReply, Loader2, Clock, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { startCooldown } from "@/lib/rateLimitStore";
 import { useCooldown } from "@/hooks/useCooldown";
+import {
+  canGenerateReply,
+  recordReplyGeneration,
+  getRemainingReplies,
+  getUsedRepliesToday,
+  FREE_REPLY_DAILY_LIMIT,
+  isPremium,
+} from "@/lib/usageTracking";
+import { getCachedReplies, setCachedReplies } from "@/lib/replyCache";
 
 interface AutoReplyGeneratorProps {
   comment: {
@@ -25,26 +35,89 @@ const toneEmoji: Record<Tone, string> = {
   witty: "😏",
 };
 
+const fallbackReplies: Record<Tone, string[]> = {
+  friendly: [
+    "Thanks so much for sharing your thoughts! 😊 I really appreciate you watching and joining the conversation.",
+    "I appreciate the comment! Glad to have you here, and thanks for taking the time to watch. 🙌",
+    "Thanks for being part of the community! Your support and feedback mean a lot. 😊",
+  ],
+  professional: [
+    "Thank you for your comment. I appreciate you taking the time to watch and share your perspective.",
+    "Thanks for the feedback. I appreciate your engagement and will keep this in mind for future videos.",
+    "Thank you for watching and contributing to the discussion. Your input is appreciated.",
+  ],
+  witty: [
+    "Now that’s a comment worth pinning in spirit, if not literally. Thanks for watching!",
+    "Appreciate you dropping by the comments section — the algorithm sends its regards.",
+    "Thanks for the comment! The pixels and I both appreciate the support.",
+  ],
+};
+
 const AutoReplyGenerator = ({ comment, videoTitle, onClose }: AutoReplyGeneratorProps) => {
   const [tone, setTone] = useState<Tone>("friendly");
   const [replies, setReplies] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
+  const [localLimitHit, setLocalLimitHit] = useState(false);
+  const [usedFallback, setUsedFallback] = useState(false);
+  const [quotaTick, setQuotaTick] = useState(0);
   const { toast } = useToast();
   const cooldown = useCooldown();
 
+  const remaining = isPremium() ? Infinity : getRemainingReplies();
+  const used = isPremium() ? 0 : getUsedRepliesToday();
+  const quotaPct = isPremium() ? 0 : Math.min(100, (used / FREE_REPLY_DAILY_LIMIT) * 100);
+
+  useEffect(() => {
+    const cached = getCachedReplies(comment.text, tone, videoTitle);
+    if (cached) {
+      setReplies(cached);
+    } else {
+      setReplies([]);
+    }
+  }, [comment.text, tone, videoTitle]);
+
+  const showLocalLimitWarning = () => {
+    setLocalLimitHit(true);
+    toast({
+      title: "Daily reply limit reached",
+      description: `Free tier allows ${FREE_REPLY_DAILY_LIMIT} AI replies/day. Upgrade for unlimited.`,
+      variant: "destructive",
+    });
+  };
+
   const generateReplies = async () => {
     if (cooldown.active) return;
+    if (!isPremium() && !canGenerateReply()) {
+      showLocalLimitWarning();
+      return;
+    }
+    const cached = getCachedReplies(comment.text, tone, videoTitle);
+    if (cached) {
+      setReplies(cached);
+      return;
+    }
+
     setIsLoading(true);
-    setReplies([]);
+    setUsedFallback(false);
     try {
       const { data, error } = await supabase.functions.invoke("generate-reply", {
         body: { commentText: comment.text, tone, videoTitle },
       });
       if (error) throw new Error(error.message);
       if (data?.error) throw new Error(data.error);
-      setReplies(data.replies || []);
+
+      const gotReplies = data.replies || fallbackReplies[tone];
+      setReplies(gotReplies);
+      setCachedReplies(comment.text, tone, gotReplies, videoTitle);
+
+      if (!data?.fallback) {
+        recordReplyGeneration();
+      }
+      setQuotaTick((x) => x + 1);
+
       if (data?.fallback) {
+        setUsedFallback(true);
         startCooldown(typeof data?.retryAfter === "number" ? data.retryAfter : undefined);
         toast({
           title: "Using backup replies",
@@ -74,6 +147,9 @@ const AutoReplyGenerator = ({ comment, videoTitle, onClose }: AutoReplyGenerator
     setTimeout(() => setCopiedIdx(null), 2000);
   };
 
+  const outOfQuota = !isPremium() && remaining <= 0;
+  const disabled = isLoading || cooldown.active || outOfQuota;
+
   return (
     <div className="space-y-4 p-4 rounded-lg border border-primary/20 bg-primary/5">
       <div className="flex items-start justify-between">
@@ -100,15 +176,47 @@ const AutoReplyGenerator = ({ comment, videoTitle, onClose }: AutoReplyGenerator
             size="sm"
             className="h-7 text-xs capitalize"
             onClick={() => setTone(t)}
+            disabled={isLoading}
           >
             {toneEmoji[t]} {t}
           </Button>
         ))}
       </div>
 
+      {/* Quota indicator */}
+      {!isPremium() && (
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground">AI replies today</span>
+            <span className={remaining === 0 ? "text-destructive font-medium" : "text-muted-foreground"}>
+              {used}/{FREE_REPLY_DAILY_LIMIT} used
+            </span>
+          </div>
+          <Progress value={quotaPct} className="h-1" />
+        </div>
+      )}
+
+      {outOfQuota && (
+        <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 p-2.5">
+          <AlertCircle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
+          <p className="text-xs text-destructive">
+            You’ve used your {FREE_REPLY_DAILY_LIMIT} free AI replies today. Come back tomorrow or upgrade for unlimited.
+          </p>
+        </div>
+      )}
+
+      {usedFallback && (
+        <div className="flex items-start gap-2 rounded-md border border-primary/30 bg-primary/10 p-2.5">
+          <AlertCircle className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+          <p className="text-xs text-foreground">
+            AI is at capacity — these are backup replies. Generated replies will return once the cooldown resets.
+          </p>
+        </div>
+      )}
+
       <Button
         onClick={generateReplies}
-        disabled={isLoading || cooldown.active}
+        disabled={disabled}
         size="sm"
         className="w-full"
       >
@@ -120,12 +228,21 @@ const AutoReplyGenerator = ({ comment, videoTitle, onClose }: AutoReplyGenerator
           <>
             <Clock className="w-3 h-3 mr-1" /> AI cooling down — retry in {cooldown.secondsLeft}s
           </>
+        ) : outOfQuota ? (
+          <>
+            <AlertCircle className="w-3 h-3 mr-1" /> Daily limit reached
+          </>
+        ) : replies.length > 0 ? (
+          <>
+            <MessageSquareReply className="w-3 h-3 mr-1" /> Regenerate ({remaining} left)
+          </>
         ) : (
           <>
-            <MessageSquareReply className="w-3 h-3 mr-1" /> Generate Replies
+            <MessageSquareReply className="w-3 h-3 mr-1" /> Generate Replies ({remaining} left)
           </>
         )}
       </Button>
+
 
       {/* Generated replies */}
       {replies.length > 0 && (
