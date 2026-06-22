@@ -26,7 +26,7 @@ import AIRateLimitBanner from "@/components/AIRateLimitBanner";
 import { downloadJSON, downloadCSV } from "@/lib/downloadReport";
 import { useToast } from "@/hooks/use-toast";
 import ThemeToggle from "@/components/ThemeToggle";
-import { canAnalyze, recordAnalysis, getRemainingAnalyses, isPremium, FREE_DAILY_LIMIT, getUsedToday } from "@/lib/usageTracking";
+import { canAnalyze, recordAnalysis, getRemainingAnalyses, isPremium, FREE_DAILY_LIMIT, getUsedToday, getRemainingReplies, FREE_REPLY_DAILY_LIMIT, getUsedRepliesToday } from "@/lib/usageTracking";
 import { FEATURE_USAGE_LIMITS } from "@/lib/featureFlags";
 import { startCooldown } from "@/lib/rateLimitStore";
 import type { AnalysisResult } from "@/types/analysis";
