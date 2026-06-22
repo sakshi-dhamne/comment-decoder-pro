@@ -58,15 +58,15 @@ const AutoReplyGenerator = ({ comment, videoTitle, onClose }: AutoReplyGenerator
   const [replies, setReplies] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
-  const [localLimitHit, setLocalLimitHit] = useState(false);
   const [usedFallback, setUsedFallback] = useState(false);
-  const [quotaTick, setQuotaTick] = useState(0);
   const { toast } = useToast();
   const cooldown = useCooldown();
 
-  const remaining = isPremium() ? Infinity : getRemainingReplies();
-  const used = isPremium() ? 0 : getUsedRepliesToday();
-  const quotaPct = isPremium() ? 0 : Math.min(100, (used / FREE_REPLY_DAILY_LIMIT) * 100);
+  const premium = isPremium();
+  const remaining = premium ? Infinity : getRemainingReplies();
+  const used = premium ? 0 : getUsedRepliesToday();
+  const quotaPct = premium ? 0 : Math.min(100, (used / FREE_REPLY_DAILY_LIMIT) * 100);
+
 
   useEffect(() => {
     const cached = getCachedReplies(comment.text, tone, videoTitle);
