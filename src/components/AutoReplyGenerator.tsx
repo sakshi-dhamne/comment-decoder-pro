@@ -238,13 +238,14 @@ const AutoReplyGenerator = ({ comment, videoTitle, onClose }: AutoReplyGenerator
           </>
         ) : replies.length > 0 ? (
           <>
-            <MessageSquareReply className="w-3 h-3 mr-1" /> Regenerate ({remaining} left)
+            <MessageSquareReply className="w-3 h-3 mr-1" /> Regenerate ({remainingLabel})
           </>
         ) : (
           <>
-            <MessageSquareReply className="w-3 h-3 mr-1" /> Generate Replies ({remaining} left)
+            <MessageSquareReply className="w-3 h-3 mr-1" /> Generate Replies ({remainingLabel})
           </>
         )}
+
       </Button>
 
 
