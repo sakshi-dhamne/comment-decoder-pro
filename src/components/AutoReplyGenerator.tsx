@@ -187,7 +187,7 @@ const AutoReplyGenerator = ({ comment, videoTitle, onClose }: AutoReplyGenerator
       </div>
 
       {/* Quota indicator */}
-      {!isPremium() && (
+      {!premium && (
         <div className="space-y-1.5">
           <div className="flex items-center justify-between text-xs">
             <span className="text-muted-foreground">AI replies today</span>
@@ -198,6 +198,7 @@ const AutoReplyGenerator = ({ comment, videoTitle, onClose }: AutoReplyGenerator
           <Progress value={quotaPct} className="h-1" />
         </div>
       )}
+
 
       {outOfQuota && (
         <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 p-2.5">
