@@ -147,8 +147,11 @@ const AutoReplyGenerator = ({ comment, videoTitle, onClose }: AutoReplyGenerator
     setTimeout(() => setCopiedIdx(null), 2000);
   };
 
-  const outOfQuota = !isPremium() && remaining <= 0;
+  const outOfQuota = !premium && remaining <= 0;
   const disabled = isLoading || cooldown.active || outOfQuota;
+
+  const remainingLabel = premium ? "unlimited" : String(remaining);
+
 
   return (
     <div className="space-y-4 p-4 rounded-lg border border-primary/20 bg-primary/5">
