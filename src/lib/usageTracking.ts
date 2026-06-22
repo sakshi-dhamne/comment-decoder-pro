@@ -1,9 +1,11 @@
 // Local-first usage gating + ad analytics. Ready to migrate to backend later.
 const DAILY_KEY = "ci_daily_usage";
+const REPLY_DAILY_KEY = "ci_reply_daily_usage";
 const PREMIUM_KEY = "ci_is_premium";
 const AD_EVENTS_KEY = "ci_ad_events";
 
 export const FREE_DAILY_LIMIT = 5;
+export const FREE_REPLY_DAILY_LIMIT = 3;
 
 interface DailyUsage {
   date: string; // YYYY-MM-DD
@@ -14,9 +16,9 @@ function today(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-function readUsage(): DailyUsage {
+function readUsage(key: string): DailyUsage {
   try {
-    const raw = localStorage.getItem(DAILY_KEY);
+    const raw = localStorage.getItem(key);
     if (raw) {
       const u = JSON.parse(raw) as DailyUsage;
       if (u.date === today()) return u;
@@ -27,25 +29,54 @@ function readUsage(): DailyUsage {
   return { date: today(), count: 0 };
 }
 
+function writeUsage(key: string, u: DailyUsage): void {
+  try {
+    localStorage.setItem(key, JSON.stringify(u));
+  } catch {
+    // Ignore storage errors
+  }
+}
+
 export function getRemainingAnalyses(): number {
   if (isPremium()) return Infinity;
-  const u = readUsage();
+  const u = readUsage(DAILY_KEY);
   return Math.max(0, FREE_DAILY_LIMIT - u.count);
 }
 
 export function getUsedToday(): number {
-  return readUsage().count;
+  return readUsage(DAILY_KEY).count;
 }
 
 export function canAnalyze(): boolean {
-  return isPremium() || readUsage().count < FREE_DAILY_LIMIT;
+  return isPremium() || readUsage(DAILY_KEY).count < FREE_DAILY_LIMIT;
 }
 
 export function recordAnalysis(): void {
   if (isPremium()) return;
-  const u = readUsage();
+  const u = readUsage(DAILY_KEY);
   u.count += 1;
-  localStorage.setItem(DAILY_KEY, JSON.stringify(u));
+  writeUsage(DAILY_KEY, u);
+}
+
+export function getRemainingReplies(): number {
+  if (isPremium()) return Infinity;
+  const u = readUsage(REPLY_DAILY_KEY);
+  return Math.max(0, FREE_REPLY_DAILY_LIMIT - u.count);
+}
+
+export function getUsedRepliesToday(): number {
+  return readUsage(REPLY_DAILY_KEY).count;
+}
+
+export function canGenerateReply(): boolean {
+  return isPremium() || readUsage(REPLY_DAILY_KEY).count < FREE_REPLY_DAILY_LIMIT;
+}
+
+export function recordReplyGeneration(): void {
+  if (isPremium()) return;
+  const u = readUsage(REPLY_DAILY_KEY);
+  u.count += 1;
+  writeUsage(REPLY_DAILY_KEY, u);
 }
 
 export function isPremium(): boolean {
@@ -55,6 +86,12 @@ export function isPremium(): boolean {
 export function setPremium(v: boolean): void {
   localStorage.setItem(PREMIUM_KEY, v ? "true" : "false");
 }
+
+export function resetDailyUsage(): void {
+  writeUsage(DAILY_KEY, { date: today(), count: 0 });
+  writeUsage(REPLY_DAILY_KEY, { date: today(), count: 0 });
+}
+
 
 // --- Ad analytics (basic, local) ---
 export interface AdEvent {

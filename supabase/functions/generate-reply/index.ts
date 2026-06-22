@@ -104,13 +104,18 @@ Deno.serve(async (req) => {
     for (let attempt = 0; attempt <= delays.length; attempt++) {
       response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
-        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+        headers: {
+          "Lovable-API-Key": LOVABLE_API_KEY,
+          "X-Lovable-AIG-SDK": "vercel-ai-sdk",
+          "Content-Type": "application/json",
+        },
         body: aiBody,
       });
       if (response.status !== 429 || attempt === delays.length) break;
       console.warn(`AI gateway 429, retrying in ${delays[attempt]}ms (attempt ${attempt + 1})`);
       await new Promise((r) => setTimeout(r, delays[attempt]));
     }
+
     if (!response) throw new Error("No response");
 
     if (response.status === 429) {

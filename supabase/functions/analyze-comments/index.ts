@@ -176,7 +176,12 @@ async function analyzeSentimentBatch(
     try {
       const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
-        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+        headers: {
+          "Lovable-API-Key": apiKey,
+          "X-Lovable-AIG-SDK": "vercel-ai-sdk",
+          "Content-Type": "application/json",
+        },
+
         body: JSON.stringify({
           model: "google/gemini-2.5-flash-lite",
           messages: [
@@ -248,7 +253,12 @@ async function categorizeComments(
     try {
       const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
-        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+        headers: {
+          "Lovable-API-Key": apiKey,
+          "X-Lovable-AIG-SDK": "vercel-ai-sdk",
+          "Content-Type": "application/json",
+        },
+
         body: JSON.stringify({
           model: "google/gemini-2.5-flash-lite",
           messages: [
@@ -333,7 +343,12 @@ async function generateInsights(
   const tryModel = async (model: string) => {
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      headers: {
+        "Lovable-API-Key": apiKey,
+        "X-Lovable-AIG-SDK": "vercel-ai-sdk",
+        "Content-Type": "application/json",
+      },
+
       body: JSON.stringify({
         model,
         tools,
