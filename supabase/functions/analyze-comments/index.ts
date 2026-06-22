@@ -294,7 +294,7 @@ async function generateInsights(
   apiKey: string
 ) {
   const total = comments.length;
-  const sampleComments = comments.slice(0, 60).map(c => `[${c.sentiment}/${c.category}] ${c.text.slice(0, 120)}`).join("\n");
+  const sampleComments = comments.slice(0, 60).map(c => `[${c.sentiment}/${c.category}] ${sanitizeForPrompt(c.text, 120)}`).join("\n");
   const topTopics = topicsData.slice(0, 10).map(t => `"${t.topic}" (${t.count})`).join(", ");
 
   const userContent = `Analyze ${total} comments (${sentiment.positive} positive, ${sentiment.negative} negative, ${sentiment.neutral} neutral).\n\nTop topics: ${topTopics}\n\nComments:\n${sampleComments}`;
