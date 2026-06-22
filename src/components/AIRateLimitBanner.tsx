@@ -2,13 +2,14 @@ import { AlertTriangle, Clock } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useCooldown } from "@/hooks/useCooldown";
-import { DEFAULT_COOLDOWN_SECONDS } from "@/lib/rateLimitStore";
+import { getCooldownTotal } from "@/lib/rateLimitStore";
 
 const AIRateLimitBanner = () => {
   const { active, secondsLeft } = useCooldown();
   if (!active) return null;
 
-  const pct = Math.max(0, Math.min(100, ((DEFAULT_COOLDOWN_SECONDS - secondsLeft) / DEFAULT_COOLDOWN_SECONDS) * 100));
+  const total = getCooldownTotal();
+  const pct = Math.max(0, Math.min(100, ((total - secondsLeft) / total) * 100));
 
   return (
     <Card className="border-primary/30 bg-primary/5">

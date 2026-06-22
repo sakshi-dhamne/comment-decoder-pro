@@ -6,6 +6,17 @@ const KEY = "ci_ai_cooldown_until";
 const EVT = "ci-ai-cooldown-change";
 
 export const DEFAULT_COOLDOWN_SECONDS = 60;
+const TOTAL_KEY = "ci_ai_cooldown_total";
+
+export function getCooldownTotal(): number {
+  try {
+    const raw = localStorage.getItem(TOTAL_KEY);
+    const n = raw ? Number(raw) : 0;
+    return Number.isFinite(n) && n > 0 ? n : DEFAULT_COOLDOWN_SECONDS;
+  } catch {
+    return DEFAULT_COOLDOWN_SECONDS;
+  }
+}
 
 export function getCooldownUntil(): number {
   try {
@@ -20,9 +31,11 @@ export function getCooldownUntil(): number {
 }
 
 export function startCooldown(seconds: number = DEFAULT_COOLDOWN_SECONDS): number {
-  const until = Date.now() + seconds * 1000;
+  const safe = Math.max(5, Math.min(3600, Math.ceil(seconds)));
+  const until = Date.now() + safe * 1000;
   try {
     localStorage.setItem(KEY, String(until));
+    localStorage.setItem(TOTAL_KEY, String(safe));
     window.dispatchEvent(new CustomEvent(EVT));
   } catch {
     // ignore
