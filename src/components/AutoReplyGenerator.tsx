@@ -236,15 +236,12 @@ const AutoReplyGenerator = ({ comment, videoTitle, onClose }: AutoReplyGenerator
           <>
             <AlertCircle className="w-3 h-3 mr-1" /> Daily limit reached
           </>
-        ) : replies.length > 0 ? (
-          <>
-            <MessageSquareReply className="w-3 h-3 mr-1" /> Regenerate ({remainingLabel})
-          </>
         ) : (
           <>
             <MessageSquareReply className="w-3 h-3 mr-1" /> Generate Replies ({remainingLabel})
           </>
         )}
+
 
       </Button>
 
