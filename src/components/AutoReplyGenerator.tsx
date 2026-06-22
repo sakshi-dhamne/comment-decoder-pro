@@ -45,7 +45,7 @@ const AutoReplyGenerator = ({ comment, videoTitle, onClose }: AutoReplyGenerator
       if (data?.error) throw new Error(data.error);
       setReplies(data.replies || []);
       if (data?.fallback) {
-        startCooldown();
+        startCooldown(typeof data?.retryAfter === "number" ? data.retryAfter : undefined);
         toast({
           title: "Using backup replies",
           description: data.warning || "AI is busy, so backup replies were shown instead.",

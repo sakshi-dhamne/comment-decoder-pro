@@ -241,7 +241,8 @@ const Index = () => {
 
               {/* Tabbed Dashboard */}
               <Tabs defaultValue="insights" className="space-y-4">
-                <TabsList className="grid grid-cols-7 w-full">
+                <div className="w-full overflow-x-auto -mx-1 px-1 scrollbar-thin">
+                <TabsList className="inline-flex md:grid md:grid-cols-7 w-max md:w-full">
                   <TabsTrigger value="insights" className="gap-1.5 text-xs">
                     <Sparkles className="w-3.5 h-3.5" /> Insights
                   </TabsTrigger>
@@ -264,6 +265,7 @@ const Index = () => {
                     <MessageSquare className="w-3.5 h-3.5" /> Comments
                   </TabsTrigger>
                 </TabsList>
+                </div>
 
                 {/* AI Insights Tab */}
                 <TabsContent value="insights">

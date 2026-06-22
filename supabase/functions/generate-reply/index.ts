@@ -115,10 +115,17 @@ Deno.serve(async (req) => {
 
     if (response.status === 429) {
       console.error("AI gateway rate limited (429)");
+      const retryHeader = response.headers.get("retry-after") || response.headers.get("x-ratelimit-reset");
+      let retryAfter = 60;
+      if (retryHeader) {
+        const n = Number(retryHeader);
+        if (Number.isFinite(n) && n > 0 && n < 3600) retryAfter = Math.ceil(n);
+      }
       return jsonResponse({
         replies: fallbackReplies[tone],
         fallback: true,
-        warning: "AI is busy right now, so fallback replies were generated instead.",
+        retryAfter,
+        warning: `AI is busy right now (retry in ~${retryAfter}s), so fallback replies were generated instead.`,
       });
     }
     if (response.status === 402) {
@@ -126,6 +133,7 @@ Deno.serve(async (req) => {
       return jsonResponse({
         replies: fallbackReplies[tone],
         fallback: true,
+        retryAfter: 300,
         warning: "AI replies are temporarily unavailable, so fallback replies were generated instead.",
       });
     }
