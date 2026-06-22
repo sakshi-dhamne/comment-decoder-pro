@@ -78,13 +78,13 @@ const AutoReplyGenerator = ({ comment, videoTitle, onClose }: AutoReplyGenerator
   }, [comment.text, tone, videoTitle]);
 
   const showLocalLimitWarning = () => {
-    setLocalLimitHit(true);
     toast({
       title: "Daily reply limit reached",
       description: `Free tier allows ${FREE_REPLY_DAILY_LIMIT} AI replies/day. Upgrade for unlimited.`,
       variant: "destructive",
     });
   };
+
 
   const generateReplies = async () => {
     if (cooldown.active) return;
