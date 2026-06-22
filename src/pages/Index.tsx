@@ -150,10 +150,20 @@ const Index = () => {
           </div>
           <MultiUrlInput onSubmitSingle={handleAnalyzeSingle} onSubmitMultiple={handleAnalyzeMultiple} isLoading={isLoading} />
           {FEATURE_USAGE_LIMITS && !isPremium() && (
-            <p className="mt-3 text-xs text-muted-foreground">
-              {getUsedToday()}/{FREE_DAILY_LIMIT} free analyses used today
-            </p>
+            <div className="mt-3 flex flex-wrap items-center gap-3 text-xs">
+              <span className="text-muted-foreground">
+                <span className="font-medium text-foreground">{getUsedToday()}</span>/{FREE_DAILY_LIMIT} analyses used
+              </span>
+              <span className="hidden sm:inline text-border">|</span>
+              <span className="text-muted-foreground">
+                <span className="font-medium text-foreground">{getUsedRepliesToday()}</span>/{FREE_REPLY_DAILY_LIMIT} AI replies used
+              </span>
+              {getRemainingAnalyses() === 0 && (
+                <span className="text-destructive font-medium">Daily analysis limit reached</span>
+              )}
+            </div>
           )}
+
         </div>
       </header>
 
