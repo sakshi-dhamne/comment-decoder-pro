@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import ReviewForm from "@/components/ReviewForm";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,7 +23,8 @@ import TokenUsagePanel from "@/components/TokenUsagePanel";
 import AdSlot from "@/components/AdSlot";
 import UpgradePrompt from "@/components/UpgradePrompt";
 import AIRateLimitBanner from "@/components/AIRateLimitBanner";
-import { downloadJSON, downloadCSV, downloadFullReportCSV } from "@/lib/downloadReport";
+import { downloadJSON, downloadCSV } from "@/lib/downloadReport";
+import { generatePdfReport } from "@/lib/generateReport";
 import { useToast } from "@/hooks/use-toast";
 import ThemeToggle from "@/components/ThemeToggle";
 import { canAnalyze, recordAnalysis, getRemainingAnalyses, isPremium, FREE_DAILY_LIMIT, getUsedToday, getRemainingReplies, FREE_REPLY_DAILY_LIMIT, getUsedRepliesToday } from "@/lib/usageTracking";
@@ -38,7 +39,44 @@ const Index = () => {
   const [error, setError] = useState<string | null>(null);
   const [reportRefreshKey, setReportRefreshKey] = useState(0);
   const [limitReached, setLimitReached] = useState(FEATURE_USAGE_LIMITS && !canAnalyze());
+  const [reportQuota, setReportQuota] = useState<{ used: number; remaining: number; limit: number; resetsAt: string | null } | null>(null);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
   const { toast } = useToast();
+
+  const refreshQuota = useCallback(async () => {
+    try {
+      const { data } = await supabase.functions.invoke("check-report-quota", {
+        body: { sessionId: getSessionId() },
+      });
+      if (data && typeof data.used === "number") setReportQuota(data);
+    } catch { /* ignore */ }
+  }, []);
+
+  useEffect(() => { if (result) refreshQuota(); }, [result, refreshQuota]);
+
+  const handleDownloadPdf = async () => {
+    if (!result || downloadingPdf) return;
+    setDownloadingPdf(true);
+    try {
+      const { data, error: fnErr } = await supabase.functions.invoke("check-report-quota", {
+        body: { sessionId: getSessionId(), videoId: (result as any).video?.id, consume: true },
+      });
+      if (fnErr) throw new Error(fnErr.message);
+      if (data?.allowed === false) {
+        const resets = data.resetsAt ? new Date(data.resetsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "later";
+        toast({ title: "Daily report limit reached", description: `You've used ${data.used}/${data.limit} downloads today. Resets at ${resets}.`, variant: "destructive" });
+        setReportQuota(data);
+        return;
+      }
+      generatePdfReport(result);
+      setReportQuota(data);
+      toast({ title: "Report downloaded", description: `${data.remaining} of ${data.limit} downloads left today.` });
+    } catch (e: any) {
+      toast({ title: "Download failed", description: e?.message || "Unable to generate report", variant: "destructive" });
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
 
   const guard = (): boolean => {
     if (!FEATURE_USAGE_LIMITS) return true;
@@ -377,9 +415,9 @@ const Index = () => {
                 {/* Comments Tab */}
                 <TabsContent value="comments">
                   <Card>
-                    <CardHeader className="flex flex-row items-center justify-between">
+                    <CardHeader className="flex flex-row items-center justify-between gap-2 flex-wrap">
                       <CardTitle className="text-lg">Comments</CardTitle>
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 flex-wrap items-center">
                         <Button variant="outline" size="sm" onClick={handleShare}>
                           <Share2 className="w-3 h-3 mr-1" /> Share
                         </Button>
@@ -389,11 +427,23 @@ const Index = () => {
                         <Button variant="outline" size="sm" onClick={() => downloadJSON(result, "report.json")}>
                           <Download className="w-3 h-3 mr-1" /> JSON
                         </Button>
-                        <Button variant="default" size="sm" onClick={() => downloadFullReportCSV(result, `report-${result.video.title.slice(0,40).replace(/[^\w]+/g,"_")}.csv`)}>
-                          <Download className="w-3 h-3 mr-1" /> Download Report
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={handleDownloadPdf}
+                          disabled={downloadingPdf || (reportQuota?.remaining === 0)}
+                          title={reportQuota?.remaining === 0 && reportQuota.resetsAt ? `Resets at ${new Date(reportQuota.resetsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : undefined}
+                        >
+                          <Download className="w-3 h-3 mr-1" />
+                          {downloadingPdf
+                            ? "Preparing..."
+                            : reportQuota
+                              ? `Download PDF · ${reportQuota.remaining}/${reportQuota.limit} left`
+                              : "Download PDF Report"}
                         </Button>
                       </div>
                     </CardHeader>
+
                     <CardContent>
                       <CommentList comments={result.comments} videoTitle={result.video.title} />
                     </CardContent>

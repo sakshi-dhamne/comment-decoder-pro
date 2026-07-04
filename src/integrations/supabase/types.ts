@@ -50,6 +50,27 @@ export type Database = {
         }
         Relationships: []
       }
+      report_download_log: {
+        Row: {
+          downloaded_at: string
+          id: string
+          session_id: string
+          video_id: string | null
+        }
+        Insert: {
+          downloaded_at?: string
+          id?: string
+          session_id: string
+          video_id?: string | null
+        }
+        Update: {
+          downloaded_at?: string
+          id?: string
+          session_id?: string
+          video_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
