@@ -39,7 +39,44 @@ const Index = () => {
   const [error, setError] = useState<string | null>(null);
   const [reportRefreshKey, setReportRefreshKey] = useState(0);
   const [limitReached, setLimitReached] = useState(FEATURE_USAGE_LIMITS && !canAnalyze());
+  const [reportQuota, setReportQuota] = useState<{ used: number; remaining: number; limit: number; resetsAt: string | null } | null>(null);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
   const { toast } = useToast();
+
+  const refreshQuota = useCallback(async () => {
+    try {
+      const { data } = await supabase.functions.invoke("check-report-quota", {
+        body: { sessionId: getSessionId() },
+      });
+      if (data && typeof data.used === "number") setReportQuota(data);
+    } catch { /* ignore */ }
+  }, []);
+
+  useEffect(() => { if (result) refreshQuota(); }, [result, refreshQuota]);
+
+  const handleDownloadPdf = async () => {
+    if (!result || downloadingPdf) return;
+    setDownloadingPdf(true);
+    try {
+      const { data, error: fnErr } = await supabase.functions.invoke("check-report-quota", {
+        body: { sessionId: getSessionId(), videoId: (result as any).video?.id, consume: true },
+      });
+      if (fnErr) throw new Error(fnErr.message);
+      if (data?.allowed === false) {
+        const resets = data.resetsAt ? new Date(data.resetsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "later";
+        toast({ title: "Daily report limit reached", description: `You've used ${data.used}/${data.limit} downloads today. Resets at ${resets}.`, variant: "destructive" });
+        setReportQuota(data);
+        return;
+      }
+      generatePdfReport(result);
+      setReportQuota(data);
+      toast({ title: "Report downloaded", description: `${data.remaining} of ${data.limit} downloads left today.` });
+    } catch (e: any) {
+      toast({ title: "Download failed", description: e?.message || "Unable to generate report", variant: "destructive" });
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
 
   const guard = (): boolean => {
     if (!FEATURE_USAGE_LIMITS) return true;
