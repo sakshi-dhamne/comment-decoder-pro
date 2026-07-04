@@ -62,3 +62,10 @@ export function hasAnyCachedReplies(commentText: string, videoTitle?: string): b
   const cache = readCache(commentText, videoTitle);
   return Object.values(cache).some((arr) => arr && arr.length > 0);
 }
+
+export function getAllCachedReplies(
+  commentText: string,
+  videoTitle?: string
+): CachedReplies {
+  return readCache(commentText, videoTitle);
+}
