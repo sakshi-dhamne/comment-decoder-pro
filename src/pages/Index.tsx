@@ -23,7 +23,7 @@ import TokenUsagePanel from "@/components/TokenUsagePanel";
 import AdSlot from "@/components/AdSlot";
 import UpgradePrompt from "@/components/UpgradePrompt";
 import AIRateLimitBanner from "@/components/AIRateLimitBanner";
-import { downloadJSON, downloadCSV } from "@/lib/downloadReport";
+import { downloadJSON, downloadCSV, downloadFullReportCSV } from "@/lib/downloadReport";
 import { useToast } from "@/hooks/use-toast";
 import ThemeToggle from "@/components/ThemeToggle";
 import { canAnalyze, recordAnalysis, getRemainingAnalyses, isPremium, FREE_DAILY_LIMIT, getUsedToday, getRemainingReplies, FREE_REPLY_DAILY_LIMIT, getUsedRepliesToday } from "@/lib/usageTracking";
