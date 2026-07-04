@@ -25,8 +25,6 @@ import UpgradePrompt from "@/components/UpgradePrompt";
 import AIRateLimitBanner from "@/components/AIRateLimitBanner";
 import { downloadJSON, downloadCSV } from "@/lib/downloadReport";
 import { generatePdfReport } from "@/lib/generateReport";
-import { downloadJSON, downloadCSV } from "@/lib/downloadReport";
-import { generatePdfReport } from "@/lib/generateReport";
 import { useToast } from "@/hooks/use-toast";
 import ThemeToggle from "@/components/ThemeToggle";
 import { canAnalyze, recordAnalysis, getRemainingAnalyses, isPremium, FREE_DAILY_LIMIT, getUsedToday, getRemainingReplies, FREE_REPLY_DAILY_LIMIT, getUsedRepliesToday } from "@/lib/usageTracking";
