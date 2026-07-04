@@ -415,9 +415,9 @@ const Index = () => {
                 {/* Comments Tab */}
                 <TabsContent value="comments">
                   <Card>
-                    <CardHeader className="flex flex-row items-center justify-between">
+                    <CardHeader className="flex flex-row items-center justify-between gap-2 flex-wrap">
                       <CardTitle className="text-lg">Comments</CardTitle>
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 flex-wrap items-center">
                         <Button variant="outline" size="sm" onClick={handleShare}>
                           <Share2 className="w-3 h-3 mr-1" /> Share
                         </Button>
@@ -427,11 +427,23 @@ const Index = () => {
                         <Button variant="outline" size="sm" onClick={() => downloadJSON(result, "report.json")}>
                           <Download className="w-3 h-3 mr-1" /> JSON
                         </Button>
-                        <Button variant="default" size="sm" onClick={() => downloadFullReportCSV(result, `report-${result.video.title.slice(0,40).replace(/[^\w]+/g,"_")}.csv`)}>
-                          <Download className="w-3 h-3 mr-1" /> Download Report
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={handleDownloadPdf}
+                          disabled={downloadingPdf || (reportQuota?.remaining === 0)}
+                          title={reportQuota?.remaining === 0 && reportQuota.resetsAt ? `Resets at ${new Date(reportQuota.resetsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : undefined}
+                        >
+                          <Download className="w-3 h-3 mr-1" />
+                          {downloadingPdf
+                            ? "Preparing..."
+                            : reportQuota
+                              ? `Download PDF · ${reportQuota.remaining}/${reportQuota.limit} left`
+                              : "Download PDF Report"}
                         </Button>
                       </div>
                     </CardHeader>
+
                     <CardContent>
                       <CommentList comments={result.comments} videoTitle={result.video.title} />
                     </CardContent>
