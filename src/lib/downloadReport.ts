@@ -29,7 +29,6 @@ function esc(v: any): string {
   return `"${s.replace(/"/g, '""').replace(/\r?\n/g, " ")}"`;
 }
 
-import { getAllCachedReplies } from "./replyCache";
 
 export function downloadFullReportCSV(result: any, filename: string) {
   const lines: string[] = [];
