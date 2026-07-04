@@ -389,6 +389,9 @@ const Index = () => {
                         <Button variant="outline" size="sm" onClick={() => downloadJSON(result, "report.json")}>
                           <Download className="w-3 h-3 mr-1" /> JSON
                         </Button>
+                        <Button variant="default" size="sm" onClick={() => downloadFullReportCSV(result, `report-${result.video.title.slice(0,40).replace(/[^\w]+/g,"_")}.csv`)}>
+                          <Download className="w-3 h-3 mr-1" /> Download Report
+                        </Button>
                       </div>
                     </CardHeader>
                     <CardContent>
