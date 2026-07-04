@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import ReviewForm from "@/components/ReviewForm";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,7 +25,8 @@ import UpgradePrompt from "@/components/UpgradePrompt";
 import AIRateLimitBanner from "@/components/AIRateLimitBanner";
 import { downloadJSON, downloadCSV } from "@/lib/downloadReport";
 import { generatePdfReport } from "@/lib/generateReport";
-import { useEffect, useCallback } from "react";
+import { downloadJSON, downloadCSV } from "@/lib/downloadReport";
+import { generatePdfReport } from "@/lib/generateReport";
 import { useToast } from "@/hooks/use-toast";
 import ThemeToggle from "@/components/ThemeToggle";
 import { canAnalyze, recordAnalysis, getRemainingAnalyses, isPremium, FREE_DAILY_LIMIT, getUsedToday, getRemainingReplies, FREE_REPLY_DAILY_LIMIT, getUsedRepliesToday } from "@/lib/usageTracking";
