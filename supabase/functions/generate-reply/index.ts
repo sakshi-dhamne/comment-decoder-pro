@@ -70,8 +70,8 @@ Deno.serve(async (req) => {
       witty: "Be clever and humorous while staying respectful. Light wordplay is welcome.",
     };
 
-    const aiBody = JSON.stringify({
-      model: "google/gemini-2.5-flash-lite",
+    const buildBody = (model: string) => JSON.stringify({
+      model,
       tools: [{
         type: "function",
         function: {
@@ -98,10 +98,20 @@ Deno.serve(async (req) => {
       ],
     });
 
-    // Retry on 429 with exponential backoff (handles transient upstream rate limits)
+    // Retry with longer backoff and swap model on later attempts to avoid
+    // showing fallback replies on the very first user click.
+    const attempts: Array<{ model: string; delay: number }> = [
+      { model: "google/gemini-2.5-flash-lite", delay: 0 },
+      { model: "google/gemini-2.5-flash-lite", delay: 800 },
+      { model: "google/gemini-2.5-flash-lite", delay: 2000 },
+      { model: "google/gemini-2.5-flash", delay: 4000 },
+      { model: "google/gemini-2.5-flash", delay: 7000 },
+    ];
+
     let response: Response | null = null;
-    const delays = [600, 1500]; // 2 retries
-    for (let attempt = 0; attempt <= delays.length; attempt++) {
+    for (let i = 0; i < attempts.length; i++) {
+      const { model, delay } = attempts[i];
+      if (delay) await new Promise((r) => setTimeout(r, delay + Math.floor(Math.random() * 250)));
       response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -109,19 +119,18 @@ Deno.serve(async (req) => {
           "X-Lovable-AIG-SDK": "vercel-ai-sdk",
           "Content-Type": "application/json",
         },
-        body: aiBody,
+        body: buildBody(model),
       });
-      if (response.status !== 429 || attempt === delays.length) break;
-      console.warn(`AI gateway 429, retrying in ${delays[attempt]}ms (attempt ${attempt + 1})`);
-      await new Promise((r) => setTimeout(r, delays[attempt]));
+      if (response.status !== 429) break;
+      console.warn(`AI gateway 429 on ${model} (attempt ${i + 1}/${attempts.length})`);
     }
 
     if (!response) throw new Error("No response");
 
     if (response.status === 429) {
-      console.error("AI gateway rate limited (429)");
+      console.error("AI gateway rate limited (429) after all retries");
       const retryHeader = response.headers.get("retry-after") || response.headers.get("x-ratelimit-reset");
-      let retryAfter = 60;
+      let retryAfter = 45;
       if (retryHeader) {
         const n = Number(retryHeader);
         if (Number.isFinite(n) && n > 0 && n < 3600) retryAfter = Math.ceil(n);
