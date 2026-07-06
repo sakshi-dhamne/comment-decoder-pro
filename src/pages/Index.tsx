@@ -324,6 +324,12 @@ const Index = () => {
                   <AIInsights insights={result.insights} />
                 </TabsContent>
 
+                {/* Timeline Tab */}
+                <TabsContent value="timeline">
+                  <TimelineView result={result} />
+                </TabsContent>
+
+
                 {/* Content Ideas Tab */}
                 <TabsContent value="ideas">
                   <Card>
