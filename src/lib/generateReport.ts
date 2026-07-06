@@ -364,9 +364,53 @@ export function generatePdfReport(result: AnalysisResult): void {
     y = (doc as any).lastAutoTable.finalY + 16;
   }
 
+  /* ── Moments that mattered (timeline hotspots) ── */
+  const tl = (result as any).timeline as import("@/types/analysis").Timeline | undefined;
+  if (tl?.hasTranscript && tl.hotspots?.length) {
+    ensureSpace(40);
+    section("Moments That Mattered");
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(9);
+    doc.setTextColor(...C.muted);
+    doc.text(
+      `Comments referencing specific timestamps, mapped to the video transcript. ${Object.keys(tl.commentTimestamps).length} timestamped, ${tl.unmappedCount} general.`,
+      margin, y,
+    );
+    y += 14;
+
+    const fmtTs = (s: number) => {
+      const h = Math.floor(s / 3600);
+      const m = Math.floor((s % 3600) / 60);
+      const ss = Math.floor(s % 60);
+      return h > 0
+        ? `${h}:${String(m).padStart(2, "0")}:${String(ss).padStart(2, "0")}`
+        : `${m}:${String(ss).padStart(2, "0")}`;
+    };
+    autoTable(doc, {
+      startY: y,
+      margin: { left: margin, right: margin },
+      head: [["Time", "What was said", "Reactions", "Suggestion"]],
+      body: tl.hotspots.slice(0, 8).map((h) => [
+        `${fmtTs(h.start)}-${fmtTs(h.end)}`,
+        clean(h.transcript).slice(0, 220),
+        `+${h.sentiment.positive} / -${h.sentiment.negative} / ~${h.sentiment.neutral}\n(${h.commentIndices.length} comments)`,
+        clean(h.suggestion),
+      ]),
+      headStyles: { fillColor: C.primary, textColor: [255, 255, 255], fontStyle: "bold", fontSize: 10 },
+      styles: { fontSize: 9, cellPadding: 6, textColor: C.text, valign: "top", overflow: "linebreak", lineColor: C.border, lineWidth: 0.4 },
+      alternateRowStyles: { fillColor: C.altRow },
+      columnStyles: {
+        0: { cellWidth: 64, fontStyle: "bold", halign: "center" },
+        2: { cellWidth: 78, halign: "center", fontSize: 8 },
+      },
+    });
+    y = (doc as any).lastAutoTable.finalY + 16;
+  }
+
   /* ── Top comments by category (top 10 each) with AI replies ── */
   doc.addPage();
   y = margin;
+
   section("Top Comments by Category");
   doc.setFont("helvetica", "italic");
   doc.setFontSize(9);
