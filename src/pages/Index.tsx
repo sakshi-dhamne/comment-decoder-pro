@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Download, MessageSquare, TrendingUp, BarChart3, Youtube, Share2, Sparkles, Tag, GitCompareArrows, Lightbulb, Activity } from "lucide-react";
+import { Download, MessageSquare, TrendingUp, BarChart3, Youtube, Share2, Sparkles, Tag, GitCompareArrows, Lightbulb, Activity, Clock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { getSessionId } from "@/lib/sessionId";
 import MultiUrlInput from "@/components/MultiUrlInput";
@@ -19,6 +19,7 @@ import ComparisonView from "@/components/ComparisonView";
 import ReportHistory from "@/components/ReportHistory";
 import ContentIdeas from "@/components/ContentIdeas";
 import TrendDetection from "@/components/TrendDetection";
+import TimelineView from "@/components/TimelineView";
 import TokenUsagePanel from "@/components/TokenUsagePanel";
 import AdSlot from "@/components/AdSlot";
 import UpgradePrompt from "@/components/UpgradePrompt";
@@ -290,9 +291,12 @@ const Index = () => {
               {/* Tabbed Dashboard */}
               <Tabs defaultValue="insights" className="space-y-4">
                 <div className="w-full overflow-x-auto -mx-1 px-1 scrollbar-thin">
-                <TabsList className="inline-flex md:grid md:grid-cols-7 w-max md:w-full">
+                <TabsList className="inline-flex md:grid md:grid-cols-8 w-max md:w-full">
                   <TabsTrigger value="insights" className="gap-1.5 text-xs">
                     <Sparkles className="w-3.5 h-3.5" /> Insights
+                  </TabsTrigger>
+                  <TabsTrigger value="timeline" className="gap-1.5 text-xs">
+                    <Clock className="w-3.5 h-3.5" /> Timeline
                   </TabsTrigger>
                   <TabsTrigger value="ideas" className="gap-1.5 text-xs">
                     <Lightbulb className="w-3.5 h-3.5" /> Ideas
@@ -319,6 +323,12 @@ const Index = () => {
                 <TabsContent value="insights">
                   <AIInsights insights={result.insights} />
                 </TabsContent>
+
+                {/* Timeline Tab */}
+                <TabsContent value="timeline">
+                  <TimelineView result={result} />
+                </TabsContent>
+
 
                 {/* Content Ideas Tab */}
                 <TabsContent value="ideas">

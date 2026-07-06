@@ -497,7 +497,195 @@ function extractKeywords(comments: { text: string }[]): { word: string; count: n
     .map(([word, count]) => ({ word, count }));
 }
 
+/* ─────────────── Timeline / Transcript ─────────────── */
+
+interface TranscriptCue { start: number; end: number; text: string }
+
+// Parse ISO 8601 duration (PT#H#M#S) to seconds
+function parseIsoDuration(iso: string | undefined | null): number {
+  if (!iso) return 0;
+  const m = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+  if (!m) return 0;
+  return (parseInt(m[1] || "0") * 3600) + (parseInt(m[2] || "0") * 60) + parseInt(m[3] || "0");
+}
+
+// Fetch video contentDetails.duration (best-effort)
+async function fetchVideoDuration(videoId: string, apiKey: string): Promise<number> {
+  try {
+    const res = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=contentDetails&id=${videoId}&key=${apiKey}`);
+    if (!res.ok) return 0;
+    const data = await res.json();
+    return parseIsoDuration(data.items?.[0]?.contentDetails?.duration);
+  } catch { return 0; }
+}
+
+// Fetch YouTube transcript via public timedtext endpoints (best-effort, no auth)
+async function fetchTranscript(videoId: string): Promise<TranscriptCue[] | null> {
+  try {
+    // 1. Get watch page to discover caption tracks
+    const watch = await fetch(`https://www.youtube.com/watch?v=${videoId}&hl=en`, {
+      headers: { "User-Agent": "Mozilla/5.0", "Accept-Language": "en" },
+    });
+    if (!watch.ok) return null;
+    const html = await watch.text();
+    const match = html.match(/"captionTracks":(\[.*?\])/);
+    if (!match) return null;
+    let tracks: any[];
+    try { tracks = JSON.parse(match[1]); } catch { return null; }
+    if (!Array.isArray(tracks) || !tracks.length) return null;
+
+    // Prefer English (manual > asr), else first available
+    const pick = tracks.find(t => t.languageCode === "en" && t.kind !== "asr")
+              || tracks.find(t => t.languageCode === "en")
+              || tracks[0];
+    if (!pick?.baseUrl) return null;
+
+    const capRes = await fetch(`${pick.baseUrl}&fmt=json3`);
+    if (!capRes.ok) return null;
+    const capJson = await capRes.json();
+    const events: any[] = capJson.events || [];
+    const cues: TranscriptCue[] = [];
+    for (const ev of events) {
+      if (!ev.segs) continue;
+      const start = (ev.tStartMs || 0) / 1000;
+      const dur = (ev.dDurationMs || 0) / 1000;
+      const text = ev.segs.map((s: any) => s.utf8 || "").join("").replace(/\s+/g, " ").trim();
+      if (!text) continue;
+      cues.push({ start, end: start + dur, text });
+    }
+    return cues.length ? cues : null;
+  } catch (e) {
+    console.error("Transcript fetch failed:", e);
+    return null;
+  }
+}
+
+// Extract first timestamp (in seconds) from a comment, if any
+function parseCommentTimestamp(text: string, maxDuration: number): number | null {
+  // Match H:MM:SS or M:SS or MM:SS at word boundaries
+  const re = /\b(?:(\d{1,2}):)?(\d{1,2}):(\d{2})\b/;
+  const m = text.match(re);
+  if (!m) return null;
+  const h = m[1] ? parseInt(m[1]) : 0;
+  const mm = parseInt(m[2]);
+  const ss = parseInt(m[3]);
+  if (ss >= 60 || mm >= 60) return null;
+  const secs = h * 3600 + mm * 60 + ss;
+  if (maxDuration > 0 && secs > maxDuration + 30) return null;
+  return secs;
+}
+
+// Chunk transcript cues into windows of ~windowSec seconds
+function chunkTranscript(cues: TranscriptCue[], windowSec = 30): { start: number; end: number; text: string }[] {
+  if (!cues.length) return [];
+  const chunks: { start: number; end: number; text: string }[] = [];
+  const duration = cues[cues.length - 1].end;
+  let windowStart = 0;
+  while (windowStart < duration) {
+    const windowEnd = windowStart + windowSec;
+    const parts = cues.filter(c => c.start < windowEnd && c.end > windowStart).map(c => c.text);
+    if (parts.length) {
+      chunks.push({
+        start: windowStart,
+        end: Math.min(windowEnd, duration),
+        text: parts.join(" ").replace(/\s+/g, " ").trim(),
+      });
+    }
+    windowStart = windowEnd;
+  }
+  return chunks;
+}
+
+function buildTimeline(
+  comments: { text: string; sentiment: "positive" | "negative" | "neutral" }[],
+  cues: TranscriptCue[] | null,
+  duration: number,
+): {
+  duration: number;
+  hasTranscript: boolean;
+  chunks: { start: number; end: number; text: string }[];
+  hotspots: any[];
+  commentTimestamps: Record<number, number>;
+  unmappedCount: number;
+} {
+  const hasTranscript = !!(cues && cues.length);
+  const chunks = hasTranscript ? chunkTranscript(cues!, 30) : [];
+  const effDuration = duration || (hasTranscript ? cues![cues!.length - 1].end : 0);
+
+  // Map comments with explicit timestamps
+  const commentTimestamps: Record<number, number> = {};
+  const chunkBuckets = new Map<number, number[]>(); // chunkIndex -> [commentIndex]
+
+  comments.forEach((c, i) => {
+    const ts = parseCommentTimestamp(c.text, effDuration);
+    if (ts == null) return;
+    commentTimestamps[i] = ts;
+    if (!chunks.length) return;
+    let ci = chunks.findIndex(ch => ts >= ch.start && ts < ch.end);
+    if (ci < 0) ci = ts < chunks[0].start ? 0 : chunks.length - 1;
+    if (!chunkBuckets.has(ci)) chunkBuckets.set(ci, []);
+    chunkBuckets.get(ci)!.push(i);
+  });
+
+  const mappedCount = Object.keys(commentTimestamps).length;
+  const unmappedCount = comments.length - mappedCount;
+
+  // Build hotspots: contiguous chunks with >=2 reactions get merged
+  const hotspots: any[] = [];
+  const sortedChunkIndices = [...chunkBuckets.keys()].sort((a, b) => a - b);
+  let cur: { start: number; end: number; commentIndices: number[]; chunkIdx: number[] } | null = null;
+  for (const ci of sortedChunkIndices) {
+    const bucket = chunkBuckets.get(ci)!;
+    if (bucket.length < 1) continue;
+    const chunk = chunks[ci];
+    if (cur && ci - cur.chunkIdx[cur.chunkIdx.length - 1] <= 1) {
+      cur.end = chunk.end;
+      cur.commentIndices.push(...bucket);
+      cur.chunkIdx.push(ci);
+    } else {
+      if (cur) hotspots.push(cur);
+      cur = { start: chunk.start, end: chunk.end, commentIndices: [...bucket], chunkIdx: [ci] };
+    }
+  }
+  if (cur) hotspots.push(cur);
+
+  // Enrich hotspots with sentiment, transcript text, suggestion
+  const enriched = hotspots
+    .filter(h => h.commentIndices.length >= 2)
+    .map(h => {
+      const sentiment = { positive: 0, negative: 0, neutral: 0 };
+      h.commentIndices.forEach((i: number) => { sentiment[comments[i].sentiment]++; });
+      const transcript = h.chunkIdx.map((ci: number) => chunks[ci].text).join(" ").slice(0, 600);
+      let suggestion = "";
+      const dom = sentiment.positive >= sentiment.negative && sentiment.positive >= sentiment.neutral
+        ? "positive" : sentiment.negative >= sentiment.neutral ? "negative" : "neutral";
+      if (dom === "positive") suggestion = "High-engagement moment — feature this clip in shorts or a highlight reel.";
+      else if (dom === "negative") suggestion = "Viewers pushed back here — consider a pinned comment clarifying this section.";
+      else suggestion = "This moment sparked discussion — reply to the top comments to keep engagement going.";
+      return {
+        start: Math.round(h.start),
+        end: Math.round(h.end),
+        transcript,
+        sentiment,
+        commentIndices: h.commentIndices,
+        suggestion,
+      };
+    })
+    .sort((a, b) => b.commentIndices.length - a.commentIndices.length)
+    .slice(0, 10);
+
+  return {
+    duration: effDuration,
+    hasTranscript,
+    chunks,
+    hotspots: enriched,
+    commentTimestamps,
+    unmappedCount,
+  };
+}
+
 async function analyzeVideo(videoUrl: string, ytKey: string, aiKey: string | undefined) {
+
   // Reset token tracker for this analysis
   tokenTracker.inputTokens = 0;
   tokenTracker.outputTokens = 0;
@@ -554,20 +742,26 @@ async function analyzeVideo(videoUrl: string, ytKey: string, aiKey: string | und
   const topics = extractTopics(analyzed);
   const keywords = extractKeywords(analyzed);
 
-  // AI insights (needs topics for trend analysis)
-  const insights = aiKey
-    ? await generateInsights(analyzed, sentimentCounts, topics, aiKey)
-    : {
-        summary: `${analyzed.length} comments analyzed: ${Math.round(sentimentCounts.positive / analyzed.length * 100)}% positive, ${Math.round(sentimentCounts.negative / analyzed.length * 100)}% negative.`,
-        likes: ["Content quality"],
-        dislikes: ["No AI analysis available"],
-        complaints: ["No AI analysis available"],
-        recommendations: ["Enable AI for detailed insights"],
-        nextSteps: [{ action: "Enable AI for detailed analysis", priority: "high", rationale: "Get actionable insights" }],
-        contentIdeas: [{ title: "Review comments manually", description: "AI not available", type: "video" }],
-        faqs: [{ question: "Enable AI for FAQs", answer: "N/A" }],
-        trendingTopics: [{ topic: topics[0]?.topic || "general", signal: "steady", description: "Top topic" }],
-      };
+  // Transcript + duration fetched in parallel with insights
+  const [insights, transcriptCues, duration] = await Promise.all([
+    aiKey
+      ? generateInsights(analyzed, sentimentCounts, topics, aiKey)
+      : Promise.resolve({
+          summary: `${analyzed.length} comments analyzed: ${Math.round(sentimentCounts.positive / analyzed.length * 100)}% positive, ${Math.round(sentimentCounts.negative / analyzed.length * 100)}% negative.`,
+          likes: ["Content quality"],
+          dislikes: ["No AI analysis available"],
+          complaints: ["No AI analysis available"],
+          recommendations: ["Enable AI for detailed insights"],
+          nextSteps: [{ action: "Enable AI for detailed analysis", priority: "high", rationale: "Get actionable insights" }],
+          contentIdeas: [{ title: "Review comments manually", description: "AI not available", type: "video" }],
+          faqs: [{ question: "Enable AI for FAQs", answer: "N/A" }],
+          trendingTopics: [{ topic: topics[0]?.topic || "general", signal: "steady", description: "Top topic" }],
+        }),
+    fetchTranscript(videoId),
+    fetchVideoDuration(videoId, ytKey),
+  ]);
+
+  const timeline = buildTimeline(analyzed, transcriptCues, duration);
 
   return {
     video,
@@ -579,9 +773,11 @@ async function analyzeVideo(videoUrl: string, ytKey: string, aiKey: string | und
     keywords,
     insights,
     comments: analyzed,
+    timeline,
     // tokenUsage intentionally omitted from public response (internal metric)
   };
 }
+
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
