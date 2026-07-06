@@ -30,6 +30,24 @@ export interface TokenUsage {
   skippedByDedup: number;
 }
 
+export interface TimelineHotspot {
+  start: number;               // seconds
+  end: number;                 // seconds
+  transcript: string;          // excerpt covering [start, end]
+  sentiment: { positive: number; negative: number; neutral: number };
+  commentIndices: number[];    // indexes into comments[]
+  suggestion: string;          // heuristic suggestion
+}
+
+export interface Timeline {
+  duration: number;                                // seconds; 0 if unknown
+  hasTranscript: boolean;
+  chunks: { start: number; end: number; text: string }[];
+  hotspots: TimelineHotspot[];
+  commentTimestamps: Record<number, number>;       // commentIndex -> seconds
+  unmappedCount: number;
+}
+
 export interface AnalysisResult {
   video: {
     title: string;
@@ -63,5 +81,6 @@ export interface AnalysisResult {
     category: string;
     publishedAt: string;
   }[];
+  timeline?: Timeline;
   tokenUsage?: TokenUsage;
 }
