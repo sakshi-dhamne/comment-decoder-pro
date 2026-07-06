@@ -291,9 +291,12 @@ const Index = () => {
               {/* Tabbed Dashboard */}
               <Tabs defaultValue="insights" className="space-y-4">
                 <div className="w-full overflow-x-auto -mx-1 px-1 scrollbar-thin">
-                <TabsList className="inline-flex md:grid md:grid-cols-7 w-max md:w-full">
+                <TabsList className="inline-flex md:grid md:grid-cols-8 w-max md:w-full">
                   <TabsTrigger value="insights" className="gap-1.5 text-xs">
                     <Sparkles className="w-3.5 h-3.5" /> Insights
+                  </TabsTrigger>
+                  <TabsTrigger value="timeline" className="gap-1.5 text-xs">
+                    <Clock className="w-3.5 h-3.5" /> Timeline
                   </TabsTrigger>
                   <TabsTrigger value="ideas" className="gap-1.5 text-xs">
                     <Lightbulb className="w-3.5 h-3.5" /> Ideas
