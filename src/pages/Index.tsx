@@ -19,6 +19,7 @@ import ComparisonView from "@/components/ComparisonView";
 import ReportHistory from "@/components/ReportHistory";
 import ContentIdeas from "@/components/ContentIdeas";
 import TrendDetection from "@/components/TrendDetection";
+import TimelineView from "@/components/TimelineView";
 import TokenUsagePanel from "@/components/TokenUsagePanel";
 import AdSlot from "@/components/AdSlot";
 import UpgradePrompt from "@/components/UpgradePrompt";
