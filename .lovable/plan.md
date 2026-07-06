@@ -1,73 +1,77 @@
-## Goal
-Replace the CSV "Download Report" with a polished, human-readable **PDF report**, and cap PDF downloads to **3 per session per day** tracked in the database.
+## Transcript × Comments Timeline
 
-## 1. Styled PDF report (client-side)
+Link what viewers *said* to what happened *in the video*, so creators can see exactly which moments triggered praise, confusion, or complaints.
 
-Generate in the browser with `jspdf` + `jspdf-autotable` (small, no server round-trip, keeps the button snappy).
+### What the user gets
 
-Report structure:
+A new **Timeline** tab in the results dashboard:
+
 ```text
-┌─────────────────────────────────────────┐
-│  Comment Insights Report                │  ← branded header w/ date
-├─────────────────────────────────────────┤
-│  Video: <title>                         │
-│  Channel · Views · Comments · Analyzed  │
-├─────────────────────────────────────────┤
-│  Executive Summary   (insights.summary) │
-├─────────────────────────────────────────┤
-│  Sentiment Breakdown                    │
-│    ● Positive  62%  ▇▇▇▇▇▇▇            │  ← colored bars
-│    ● Neutral   25%  ▇▇▇                 │
-│    ● Negative  13%  ▇▇                  │
-├─────────────────────────────────────────┤
-│  Top Topics            (table)          │
-│  Categories            (table)          │
-│  Likes / Dislikes / Complaints (lists)  │
-│  Recommendations & Next Steps           │
-├─────────────────────────────────────────┤
-│  Comments & AI Replies (table)          │
-│    Author │ Sentiment │ Comment │ Reply │
-└─────────────────────────────────────────┘
-Footer: page X of Y · comment-decoder-pro
+0:00 ──●───●─────●●●───────●──────●─────── 12:34
+       │   │      │        │       │
+    Intro Demo  Pricing  Bug talk  Outro
+    +18   +42   -31 😡   -57 🐛    +9
 ```
 
-- Uses semantic colors from the app's design tokens (positive/negative/neutral).
-- Auto page breaks, wrapped cells, alternating row shading.
-- Filename: `insights-<video-title-slug>-<date>.pdf`.
+- Horizontal video timeline with clustered "reaction markers" (color = sentiment, size = comment volume).
+- Hover/click a marker → panel showing the transcript excerpt at that timestamp **plus** the top comments referencing it.
+- Section summary chips: "Pricing (4:10-5:30): 31 negative reactions — viewers confused about tiers."
+- AI suggestions per hotspot: "Add a pinned comment clarifying pricing" / "Re-cut intro — 12 viewers said it's too long".
 
-## 2. Server-side 3/day limit
+### How comments get mapped to moments
 
-**Heads-up on the tradeoff:** the backend has no standard rate-limiting primitive, so this is an ad-hoc counter — reliable per `session_id`, but a user who rotates sessions can bypass it. Confirming you're OK with that before I build.
+Two signals combined:
+1. **Explicit timestamps** in comments (`3:42 that transition is 🔥`) — parsed with regex.
+2. **Semantic matching** for comments without timestamps — embed each transcript chunk (~30s windows) and each comment, then assign the comment to the best-matching chunk above a similarity threshold. Unmatched comments stay in a "general" bucket.
 
-New table `public.report_download_log`:
-- `session_id text`, `downloaded_at timestamptz default now()`
-- indexed on `(session_id, downloaded_at)`
-- RLS enabled; only edge function (service role) touches it
+### Technical plan
 
-New edge function `check-report-quota`:
-- Input: `sessionId`
-- Counts rows for that session in the last 24h
-- Returns `{ allowed: boolean, used: number, remaining: number, resetsAt: iso }`
-- If allowed, inserts a new log row and returns the quota
+**Backend**
+- New edge function `fetch-transcript`: pulls YouTube transcript via `youtube-transcript` (npm) with a fallback to timedtext scraping. Caches transcript JSON on `analysis_reports.result.transcript`.
+- Extend `analyze-comments`:
+  - After comments are fetched, run the timestamp regex pass.
+  - For unmatched comments, batch-embed via Lovable AI Gateway (`google/text-embedding-004`), embed 30s transcript chunks the same way, cosine-match, keep matches ≥ 0.72.
+  - Group results into "hotspots" (contiguous chunks with ≥ N reactions) and ask Gemini Flash for a 1-line summary + 1 suggestion per hotspot.
+  - Return new `timeline` block in the result payload.
 
-Flow when user clicks **Download Report**:
-1. Call `check-report-quota` first
-2. If `allowed === false` → toast "Daily limit reached (3/day). Resets at HH:MM." and abort
-3. If allowed → generate + download the PDF, show `used/3` in the button label
+**Types** (`src/types/analysis.ts`)
+```ts
+timeline?: {
+  duration: number;
+  chunks: { start: number; end: number; text: string }[];
+  hotspots: {
+    start: number; end: number;
+    sentiment: { positive: number; negative: number; neutral: number };
+    commentIds: number[];
+    summary: string;
+    suggestion: string;
+  }[];
+  commentTimestamps: Record<number, number>; // comment index → seconds
+}
+```
 
-## 3. UI changes
-- Remove the old CSV/JSON export buttons from the Comments tab header (keep just the new **Download Report (PDF)** button — cleaner). Confirm if you'd rather keep them.
-- Button shows remaining quota: `Download Report · 2/3 left today`.
-- Disabled + reset-time tooltip when exhausted.
+**Frontend**
+- New `src/components/TimelineView.tsx`: SVG/HTML timeline, markers, hover panel, hotspot cards.
+- New `src/components/TranscriptViewer.tsx`: scrollable transcript with current chunk highlighted.
+- Add "Timeline" tab in `src/pages/Index.tsx` between Insights and Comments.
+- Include timeline hotspots + top-quoted moments in the PDF report (`src/lib/generateReport.ts`) — new "Moments that mattered" section with a mini bar chart.
 
-## Files
-- **new:** `src/lib/generateReport.ts` — jsPDF builder
-- **new:** `supabase/functions/check-report-quota/index.ts`
-- **new migration:** `report_download_log` table + grants + RLS
-- **edit:** `src/pages/Index.tsx` — swap CSV button for PDF button + quota display
-- **edit:** `package.json` — add `jspdf`, `jspdf-autotable`
-- **delete:** `src/lib/downloadReport.ts::downloadFullReportCSV` (or keep as fallback)
+**Cost / limits**
+- Embeddings only run for comments without an explicit timestamp, capped at the same top-N cap analyze-comments already uses.
+- Transcript fetch is cached in `analysis_reports` so re-opening a report is free.
+- Videos with no available transcript degrade gracefully: timestamp-only mapping + a small "Transcript unavailable" notice.
 
-## Open questions
-1. Confirm the "session-scoped, bypassable" tradeoff is acceptable, or would you rather wait until auth is added for a true per-user limit?
-2. Keep the old CSV/JSON export buttons, or replace them entirely with the PDF button?
+### Files touched
+
+- new: `supabase/functions/fetch-transcript/index.ts`
+- edit: `supabase/functions/analyze-comments/index.ts` (embedding + hotspot pass)
+- edit: `src/types/analysis.ts`
+- new: `src/components/TimelineView.tsx`, `src/components/TranscriptViewer.tsx`
+- edit: `src/pages/Index.tsx` (new tab)
+- edit: `src/lib/generateReport.ts` (Moments section)
+- migration: none — reuses `analysis_reports.result` jsonb
+
+### Open questions
+
+1. Should the Timeline tab be part of the free tier or gated behind the same daily quota as analysis?
+2. For videos with no transcript (music, non-English, disabled captions), do you want us to attempt Whisper transcription via an edge function (extra cost) or just fall back to timestamp-only mapping?
