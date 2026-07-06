@@ -742,20 +742,26 @@ async function analyzeVideo(videoUrl: string, ytKey: string, aiKey: string | und
   const topics = extractTopics(analyzed);
   const keywords = extractKeywords(analyzed);
 
-  // AI insights (needs topics for trend analysis)
-  const insights = aiKey
-    ? await generateInsights(analyzed, sentimentCounts, topics, aiKey)
-    : {
-        summary: `${analyzed.length} comments analyzed: ${Math.round(sentimentCounts.positive / analyzed.length * 100)}% positive, ${Math.round(sentimentCounts.negative / analyzed.length * 100)}% negative.`,
-        likes: ["Content quality"],
-        dislikes: ["No AI analysis available"],
-        complaints: ["No AI analysis available"],
-        recommendations: ["Enable AI for detailed insights"],
-        nextSteps: [{ action: "Enable AI for detailed analysis", priority: "high", rationale: "Get actionable insights" }],
-        contentIdeas: [{ title: "Review comments manually", description: "AI not available", type: "video" }],
-        faqs: [{ question: "Enable AI for FAQs", answer: "N/A" }],
-        trendingTopics: [{ topic: topics[0]?.topic || "general", signal: "steady", description: "Top topic" }],
-      };
+  // Transcript + duration fetched in parallel with insights
+  const [insights, transcriptCues, duration] = await Promise.all([
+    aiKey
+      ? generateInsights(analyzed, sentimentCounts, topics, aiKey)
+      : Promise.resolve({
+          summary: `${analyzed.length} comments analyzed: ${Math.round(sentimentCounts.positive / analyzed.length * 100)}% positive, ${Math.round(sentimentCounts.negative / analyzed.length * 100)}% negative.`,
+          likes: ["Content quality"],
+          dislikes: ["No AI analysis available"],
+          complaints: ["No AI analysis available"],
+          recommendations: ["Enable AI for detailed insights"],
+          nextSteps: [{ action: "Enable AI for detailed analysis", priority: "high", rationale: "Get actionable insights" }],
+          contentIdeas: [{ title: "Review comments manually", description: "AI not available", type: "video" }],
+          faqs: [{ question: "Enable AI for FAQs", answer: "N/A" }],
+          trendingTopics: [{ topic: topics[0]?.topic || "general", signal: "steady", description: "Top topic" }],
+        }),
+    fetchTranscript(videoId),
+    fetchVideoDuration(videoId, ytKey),
+  ]);
+
+  const timeline = buildTimeline(analyzed, transcriptCues, duration);
 
   return {
     video,
@@ -767,9 +773,11 @@ async function analyzeVideo(videoUrl: string, ytKey: string, aiKey: string | und
     keywords,
     insights,
     comments: analyzed,
+    timeline,
     // tokenUsage intentionally omitted from public response (internal metric)
   };
 }
+
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
