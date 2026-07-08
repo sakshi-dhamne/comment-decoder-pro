@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_reply_log: {
+        Row: {
+          comment_preview: string | null
+          created_at: string
+          error_message: string | null
+          fallback: boolean
+          id: string
+          session_id: string
+          status: string
+          tone: string
+          video_id: string | null
+        }
+        Insert: {
+          comment_preview?: string | null
+          created_at?: string
+          error_message?: string | null
+          fallback?: boolean
+          id?: string
+          session_id: string
+          status?: string
+          tone: string
+          video_id?: string | null
+        }
+        Update: {
+          comment_preview?: string | null
+          created_at?: string
+          error_message?: string | null
+          fallback?: boolean
+          id?: string
+          session_id?: string
+          status?: string
+          tone?: string
+          video_id?: string | null
+        }
+        Relationships: []
+      }
       analysis_reports: {
         Row: {
           channel_title: string | null
@@ -52,21 +88,27 @@ export type Database = {
       }
       report_download_log: {
         Row: {
+          blocked_reason: string | null
           downloaded_at: string
           id: string
           session_id: string
+          status: string
           video_id: string | null
         }
         Insert: {
+          blocked_reason?: string | null
           downloaded_at?: string
           id?: string
           session_id: string
+          status?: string
           video_id?: string | null
         }
         Update: {
+          blocked_reason?: string | null
           downloaded_at?: string
           id?: string
           session_id?: string
+          status?: string
           video_id?: string | null
         }
         Relationships: []
