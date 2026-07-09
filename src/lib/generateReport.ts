@@ -229,6 +229,113 @@ export function generatePdfReport(result: AnalysisResult): void {
   });
   y += 92;
 
+  /* ── Limits & Checks ── */
+  {
+    ensureSpace(60);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(13);
+    doc.setTextColor(...C.primary);
+    doc.text("LIMITS & CHECKS", margin, y);
+    y += 8;
+    doc.setDrawColor(...C.primary);
+    doc.setLineWidth(1.2);
+    doc.line(margin, y, margin + 40, y);
+    doc.setLineWidth(0.5);
+    doc.setDrawColor(...C.border);
+    doc.line(margin + 40, y, pageW - margin, y);
+    y += 14;
+
+    const premium = isPremium();
+    const analysesUsed = getUsedToday();
+    const repliesUsed = getUsedRepliesToday();
+    const analysesRemaining = premium ? "unlimited" : String(getRemainingAnalyses());
+    const repliesRemaining = premium ? "unlimited" : String(getRemainingReplies());
+    const ads = getAdStats();
+    // Report-download quota: read the local mirror of blocked attempts
+    let reportBlocks = 0;
+    try {
+      const raw = localStorage.getItem("ci_report_quota_blocks");
+      if (raw) reportBlocks = Number(JSON.parse(raw)?.count || 0) || 0;
+    } catch { /* ignore */ }
+
+    autoTable(doc, {
+      startY: y,
+      margin: { left: margin, right: margin },
+      head: [["Check", "Used today", "Limit", "Remaining", "Status"]],
+      body: [
+        [
+          "AI comment analyses",
+          String(analysesUsed),
+          premium ? "unlimited" : String(FREE_DAILY_LIMIT),
+          analysesRemaining,
+          premium || analysesUsed < FREE_DAILY_LIMIT ? "OK" : "AT LIMIT",
+        ],
+        [
+          "AI reply generations",
+          String(repliesUsed),
+          premium ? "unlimited" : String(FREE_REPLY_DAILY_LIMIT),
+          repliesRemaining,
+          premium || repliesUsed < FREE_REPLY_DAILY_LIMIT ? "OK" : "AT LIMIT",
+        ],
+        [
+          "PDF report downloads",
+          "-",
+          premium ? "unlimited" : "3 / 24h (server)",
+          "-",
+          reportBlocks > 0 ? `${reportBlocks} blocked event(s)` : "OK",
+        ],
+        [
+          "Cached AI reply sets",
+          String(Object.keys(getAllCachedReplies("", result.video?.title) || {}).length ? "≥1" : "0"),
+          "—",
+          "—",
+          "OK",
+        ],
+        [
+          "Ad events (impressions / clicks)",
+          `${ads.impressions} / ${ads.clicks}`,
+          "—",
+          "—",
+          "OK",
+        ],
+      ],
+      headStyles: { fillColor: C.headerBg, textColor: C.text, fontStyle: "bold", fontSize: 9 },
+      styles: {
+        fontSize: 9,
+        cellPadding: 6,
+        textColor: C.text,
+        font: "helvetica",
+        lineColor: C.border,
+        lineWidth: 0.4,
+      },
+      alternateRowStyles: { fillColor: C.altRow },
+      columnStyles: {
+        4: { fontStyle: "bold" },
+      },
+      didParseCell: (data) => {
+        if (data.section === "body" && data.column.index === 4) {
+          const v = String(data.cell.raw || "");
+          if (v.includes("AT LIMIT") || v.includes("blocked")) {
+            data.cell.styles.textColor = C.negative;
+          } else if (v === "OK") {
+            data.cell.styles.textColor = C.positive;
+          }
+        }
+      },
+    });
+    y = (doc as { lastAutoTable?: { finalY: number } }).lastAutoTable!.finalY + 8;
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(8);
+    doc.setTextColor(...C.muted);
+    doc.text(
+      "Client-side daily quotas reset at local midnight. Report download quota is enforced server-side (3 per 24h).",
+      margin,
+      y,
+    );
+    y += 18;
+  }
+
+
   /* ── Section helper ── */
   const section = (label: string) => {
     ensureSpace(38);
