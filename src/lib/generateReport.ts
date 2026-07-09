@@ -1,6 +1,16 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { getAllCachedReplies } from "./replyCache";
+import {
+  FREE_DAILY_LIMIT,
+  FREE_REPLY_DAILY_LIMIT,
+  getUsedToday,
+  getUsedRepliesToday,
+  getRemainingAnalyses,
+  getRemainingReplies,
+  isPremium,
+  getAdStats,
+} from "./usageTracking";
 import type { AnalysisResult } from "@/types/analysis";
 
 /* ─── Color palette ─── */
