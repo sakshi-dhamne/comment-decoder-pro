@@ -1,0 +1,39 @@
+{
+  "video": {
+    "id": "TESTVIDEO01",
+    "title": "Fixture Video: Visual Regression Baseline",
+    "channelTitle": "Comment Insights QA",
+    "thumbnails": {
+      "default": { "url": "https://via.placeholder.com/120x90.png" }
+    },
+    "publishedAt": "2025-01-01T00:00:00Z"
+  },
+  "totalAnalyzed": 100,
+  "sentiment": { "positive": 62, "negative": 18, "neutral": 20 },
+  "topics": [
+    { "name": "Tutorial quality", "count": 24 },
+    { "name": "Editing style", "count": 18 },
+    { "name": "Sound", "count": 9 }
+  ],
+  "categories": {
+    "Question": 12,
+    "Praise": 40,
+    "Complaint": 10,
+    "Feedback": 20,
+    "Spam": 4
+  },
+  "keywords": [
+    { "word": "great", "count": 30 },
+    { "word": "video", "count": 25 },
+    { "word": "audio", "count": 12 }
+  ],
+  "comments": [
+    { "id": "c1", "author": "Alice", "text": "Great tutorial, super clear!", "likeCount": 12, "publishedAt": "2025-01-02T10:00:00Z", "sentiment": "positive", "category": "Praise" },
+    { "id": "c2", "author": "Bob", "text": "Audio was a bit low.", "likeCount": 3, "publishedAt": "2025-01-02T11:00:00Z", "sentiment": "negative", "category": "Complaint" },
+    { "id": "c3", "author": "Cara", "text": "Could you cover the advanced case next?", "likeCount": 5, "publishedAt": "2025-01-02T12:00:00Z", "sentiment": "neutral", "category": "Question" }
+  ],
+  "aiInsights": {
+    "summary": "Overwhelmingly positive reception with recurring feedback about audio levels.",
+    "recommendations": ["Re-master audio for the next upload", "Publish a follow-up on the advanced case"]
+  }
+}
