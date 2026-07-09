@@ -65,6 +65,12 @@ const Index = () => {
       if (fnErr) throw new Error(fnErr.message);
       if (data?.allowed === false) {
         const resets = data.resetsAt ? new Date(data.resetsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "later";
+        // Mirror blocked count locally for the PDF "Limits & Checks" section.
+        try {
+          const raw = localStorage.getItem("ci_report_quota_blocks");
+          const cur = raw ? JSON.parse(raw) : { count: 0 };
+          localStorage.setItem("ci_report_quota_blocks", JSON.stringify({ count: (cur.count || 0) + 1, last: new Date().toISOString() }));
+        } catch { /* ignore */ }
         toast({ title: "Daily report limit reached", description: `You've used ${data.used}/${data.limit} downloads today. Resets at ${resets}.`, variant: "destructive" });
         setReportQuota(data);
         return;

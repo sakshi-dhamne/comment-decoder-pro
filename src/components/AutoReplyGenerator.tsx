@@ -101,8 +101,9 @@ const AutoReplyGenerator = ({ comment, videoTitle, onClose }: AutoReplyGenerator
     setIsLoading(true);
     setUsedFallback(false);
     try {
+      const { getSessionId } = await import("@/lib/sessionId");
       const { data, error } = await supabase.functions.invoke("generate-reply", {
-        body: { commentText: comment.text, tone, videoTitle },
+        body: { commentText: comment.text, tone, videoTitle, sessionId: getSessionId() },
       });
       if (error) throw new Error(error.message);
       if (data?.error) throw new Error(data.error);

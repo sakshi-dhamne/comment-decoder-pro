@@ -3,11 +3,14 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const BodySchema = z.object({
   commentText: z.string().min(1).max(2000),
   tone: z.enum(["friendly", "professional", "witty"]),
   videoTitle: z.string().max(200).optional(),
+  sessionId: z.string().max(128).optional(),
+  videoId: z.string().max(32).optional(),
 });
 
 const jsonResponse = (body: unknown, status = 200) =>
@@ -15,6 +18,35 @@ const jsonResponse = (body: unknown, status = 200) =>
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+
+async function logReply(entry: {
+  sessionId?: string;
+  videoId?: string;
+  tone: string;
+  status: "success" | "fallback" | "error";
+  fallback: boolean;
+  commentPreview?: string;
+  errorMessage?: string;
+}) {
+  if (!entry.sessionId) return;
+  try {
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+    await supabase.from("ai_reply_log").insert({
+      session_id: entry.sessionId,
+      video_id: entry.videoId ?? null,
+      tone: entry.tone,
+      status: entry.status,
+      fallback: entry.fallback,
+      comment_preview: entry.commentPreview?.slice(0, 200) ?? null,
+      error_message: entry.errorMessage ?? null,
+    });
+  } catch (e) {
+    console.error("Failed to log reply:", e);
+  }
+}
 
 const fallbackReplies: Record<"friendly" | "professional" | "witty", string[]> = {
   friendly: [
@@ -39,13 +71,15 @@ Deno.serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  let parsedTone: "friendly" | "professional" | "witty" = "friendly";
+  let sessionId: string | undefined;
+  let videoId: string | undefined;
+  let commentPreview: string | undefined;
+
   try {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      return jsonResponse({ replies: fallbackReplies.friendly, fallback: true, warning: "AI is not configured, so fallback replies were used." });
-    }
 
-    const body = await req.json();
+    const body = await req.json().catch(() => ({}));
     const parsed = BodySchema.safeParse(body);
     if (!parsed.success) {
       console.error("Validation error:", parsed.error.flatten());
@@ -53,11 +87,19 @@ Deno.serve(async (req) => {
     }
 
     const { commentText, tone, videoTitle } = parsed.data;
-    // Sanitize videoTitle to mitigate prompt injection: strip newlines/quotes, cap length
+    parsedTone = tone;
+    sessionId = parsed.data.sessionId;
+    videoId = parsed.data.videoId;
+    commentPreview = commentText;
+
+    if (!LOVABLE_API_KEY) {
+      await logReply({ sessionId, videoId, tone, status: "fallback", fallback: true, commentPreview, errorMessage: "AI not configured" });
+      return jsonResponse({ replies: fallbackReplies.friendly, fallback: true, warning: "AI is not configured, so fallback replies were used." });
+    }
+
     const safeVideoTitle = videoTitle
       ? videoTitle.replace(/[\r\n"`]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 200)
       : "";
-    // Sanitize commentText similarly (untrusted user input flowing into prompt)
     const safeCommentText = commentText
       .replace(/[\r\n\t"`]+/g, " ")
       .replace(/\s+/g, " ")
@@ -98,8 +140,6 @@ Deno.serve(async (req) => {
       ],
     });
 
-    // Retry with longer backoff and swap model on later attempts to avoid
-    // showing fallback replies on the very first user click.
     const attempts: Array<{ model: string; delay: number }> = [
       { model: "google/gemini-2.5-flash-lite", delay: 0 },
       { model: "google/gemini-2.5-flash-lite", delay: 800 },
@@ -128,13 +168,13 @@ Deno.serve(async (req) => {
     if (!response) throw new Error("No response");
 
     if (response.status === 429) {
-      console.error("AI gateway rate limited (429) after all retries");
       const retryHeader = response.headers.get("retry-after") || response.headers.get("x-ratelimit-reset");
       let retryAfter = 45;
       if (retryHeader) {
         const n = Number(retryHeader);
         if (Number.isFinite(n) && n > 0 && n < 3600) retryAfter = Math.ceil(n);
       }
+      await logReply({ sessionId, videoId, tone, status: "fallback", fallback: true, commentPreview, errorMessage: "429 rate limited" });
       return jsonResponse({
         replies: fallbackReplies[tone],
         fallback: true,
@@ -143,7 +183,7 @@ Deno.serve(async (req) => {
       });
     }
     if (response.status === 402) {
-      console.error("AI gateway returned 402 (credits exhausted)");
+      await logReply({ sessionId, videoId, tone, status: "fallback", fallback: true, commentPreview, errorMessage: "402 credits exhausted" });
       return jsonResponse({
         replies: fallbackReplies[tone],
         fallback: true,
@@ -157,12 +197,22 @@ Deno.serve(async (req) => {
     const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
     if (toolCall) {
       const { replies } = JSON.parse(toolCall.function.arguments);
+      await logReply({ sessionId, videoId, tone, status: "success", fallback: false, commentPreview });
       return jsonResponse({ replies });
     }
 
     throw new Error("No tool call response");
   } catch (error) {
     console.error("Reply generation error:", error);
+    await logReply({
+      sessionId,
+      videoId,
+      tone: parsedTone,
+      status: "error",
+      fallback: false,
+      commentPreview,
+      errorMessage: (error as Error).message,
+    });
     return jsonResponse({ error: "Failed to generate reply" }, 500);
   }
 });
