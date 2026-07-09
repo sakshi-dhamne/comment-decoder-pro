@@ -50,6 +50,15 @@ Deno.serve(async (req) => {
     }
 
     if (remaining <= 0) {
+      // Record the blocked attempt so the admin dashboard can see quota breaches.
+      await supabase
+        .from("report_download_log")
+        .insert({
+          session_id: sessionId,
+          video_id: videoId ?? null,
+          status: "blocked",
+          blocked_reason: "daily_quota_exceeded",
+        });
       return new Response(
         JSON.stringify({ allowed: false, used, remaining: 0, limit: DAILY_LIMIT, resetsAt }),
         { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } },
