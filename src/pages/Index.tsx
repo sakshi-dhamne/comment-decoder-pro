@@ -28,6 +28,7 @@ import { downloadJSON, downloadCSV } from "@/lib/downloadReport";
 import { generatePdfReport } from "@/lib/generateReport";
 import { useToast } from "@/hooks/use-toast";
 import ThemeToggle from "@/components/ThemeToggle";
+import Seo from "@/components/Seo";
 import { canAnalyze, recordAnalysis, getRemainingAnalyses, isPremium, FREE_DAILY_LIMIT, getUsedToday, getRemainingReplies, FREE_REPLY_DAILY_LIMIT, getUsedRepliesToday } from "@/lib/usageTracking";
 import { FEATURE_USAGE_LIMITS } from "@/lib/featureFlags";
 import { startCooldown } from "@/lib/rateLimitStore";
@@ -181,6 +182,19 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <Seo
+        title="YouTube Comment Insights — Sentiment & Topic Analysis"
+        description="Analyze any YouTube video's comments for sentiment, topics, trends and content ideas. Free, fast and visual — no signup."
+        path="/"
+        jsonLd={{
+          "@context": "https://schema.org",
+          "@type": "WebApplication",
+          name: "Comment Decoder Pro",
+          applicationCategory: "BusinessApplication",
+          url: "https://comment-decoder-pro.lovable.app/",
+          offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+        }}
+      />
       <header className="border-b border-border bg-card">
         <div className="container max-w-5xl mx-auto py-6 px-4">
           <div className="flex items-center gap-3 mb-6">
@@ -259,6 +273,7 @@ const Index = () => {
         <AnimatePresence>
           {result && !isLoading && (
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+              <h2 className="sr-only">Analysis results</h2>
               {/* Video Info */}
               <Card>
                 <CardContent className="pt-6">
