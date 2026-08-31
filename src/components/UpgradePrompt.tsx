@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Crown, Zap, BarChart3 } from "lucide-react";
@@ -21,8 +22,10 @@ const UpgradePrompt = ({ variant = "card" }: UpgradePromptProps) => {
             Upgrade for unlimited analyses.
           </span>
         </div>
-        <Button size="sm" variant="default" className="h-8">
-          <Crown className="w-3 h-3 mr-1" /> Upgrade
+        <Button size="sm" variant="default" className="h-8" asChild>
+          <Link to="/about#contact">
+            <Crown className="w-3 h-3 mr-1" /> Upgrade
+          </Link>
         </Button>
       </div>
     );
@@ -54,8 +57,10 @@ const UpgradePrompt = ({ variant = "card" }: UpgradePromptProps) => {
             <span>No ads</span>
           </div>
         </div>
-        <Button className="mt-2">
-          <Crown className="w-4 h-4 mr-2" /> Upgrade to Pro
+        <Button className="mt-2" asChild>
+          <Link to="/about#contact">
+            <Crown className="w-4 h-4 mr-2" /> Upgrade to Pro
+          </Link>
         </Button>
         <p className="text-xs text-muted-foreground">Limit resets at midnight.</p>
       </CardContent>

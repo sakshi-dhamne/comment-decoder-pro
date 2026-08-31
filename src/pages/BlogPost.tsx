@@ -1,25 +1,35 @@
 import { Link, useParams, Navigate } from "react-router-dom";
-import { useEffect } from "react";
 import SiteFooter from "@/components/SiteFooter";
+import Seo from "@/components/Seo";
 import { getPostBySlug } from "@/data/blogPosts";
+
+const SITE_URL = "https://comment-decoder-pro.lovable.app";
 
 const BlogPost = () => {
   const { slug } = useParams<{ slug: string }>();
   const post = slug ? getPostBySlug(slug) : undefined;
 
-  useEffect(() => {
-    if (post) {
-      document.title = `${post.title} — Comment Decoder Pro`;
-    }
-    return () => {
-      document.title = "YouTube Comment Insights — Sentiment & Topic Analysis";
-    };
-  }, [post]);
-
   if (!post) return <Navigate to="/blog" replace />;
 
   return (
     <div className="min-h-screen bg-background text-foreground">
+      <Seo
+        title={`${post.title} — Comment Decoder Pro`}
+        description={post.description}
+        path={`/blog/${post.slug}`}
+        type="article"
+        jsonLd={{
+          "@context": "https://schema.org",
+          "@type": "BlogPosting",
+          headline: post.title,
+          description: post.description,
+          datePublished: new Date(post.date).toISOString().slice(0, 10),
+          image: `${SITE_URL}${post.cover}`,
+          mainEntityOfPage: `${SITE_URL}/blog/${post.slug}`,
+          author: { "@type": "Organization", name: "Comment Decoder Pro" },
+          publisher: { "@type": "Organization", name: "Comment Decoder Pro" },
+        }}
+      />
       <main className="max-w-3xl mx-auto px-4 py-12">
         <nav className="mb-8 text-sm">
           <Link to="/blog" className="text-primary hover:underline">← All posts</Link>

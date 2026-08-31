@@ -130,6 +130,7 @@ const MultiUrlInput = ({ onSubmitSingle, onSubmitMultiple, isLoading }: MultiUrl
             <div className="relative flex-1">
               <Input
                 value={url}
+                aria-label={compareMode ? `YouTube video URL ${i + 1}` : "YouTube video URL"}
                 onChange={(e) => updateUrl(i, e.target.value)}
                 onFocus={() => {
                   setActiveInput(i);
@@ -141,7 +142,7 @@ const MultiUrlInput = ({ onSubmitSingle, onSubmitMultiple, isLoading }: MultiUrl
               />
             </div>
             {compareMode && urls.length > 1 && (
-              <Button type="button" variant="ghost" size="icon" onClick={() => removeUrl(i)} className="h-12 w-12 shrink-0">
+              <Button type="button" aria-label={`Remove URL ${i + 1}`} variant="ghost" size="icon" onClick={() => removeUrl(i)} className="h-12 w-12 shrink-0">
                 <X className="w-4 h-4" />
               </Button>
             )}
@@ -185,6 +186,8 @@ const MultiUrlInput = ({ onSubmitSingle, onSubmitMultiple, isLoading }: MultiUrl
               >
                 <span className="truncate flex-1">{item}</span>
                 <button
+                  type="button"
+                  aria-label={`Remove ${item} from search history`}
                   onClick={(e) => removeHistoryItem(e, item)}
                   className="opacity-0 group-hover:opacity-100 ml-2 text-muted-foreground hover:text-destructive transition-opacity"
                 >

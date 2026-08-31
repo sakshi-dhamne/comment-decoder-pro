@@ -1,8 +1,14 @@
 import { Link } from "react-router-dom";
 import SiteFooter from "@/components/SiteFooter";
+import Seo from "@/components/Seo";
 
 const Privacy = () => (
   <div className="min-h-screen bg-background text-foreground">
+    <Seo
+      title="Privacy Policy — Comment Decoder Pro"
+      description="How Comment Decoder Pro handles session data, YouTube comment data, analytics and advertising cookies, plus retention and your rights."
+      path="/privacy"
+    />
     <main className="max-w-3xl mx-auto px-4 py-12">
       <nav className="mb-8 text-sm">
         <Link to="/" className="text-primary hover:underline">← Back to app</Link>
