@@ -258,6 +258,7 @@ const AutoReplyGenerator = ({ comment, videoTitle, onClose }: AutoReplyGenerator
                   <Button
                     variant="ghost"
                     size="sm"
+                    aria-label={copiedIdx === i ? "Reply copied to clipboard" : "Copy reply to clipboard"}
                     className="h-7 w-7 p-0 shrink-0"
                     onClick={() => copyReply(reply, i)}
                   >
