@@ -1,9 +1,15 @@
 import { Link } from "react-router-dom";
 import SiteFooter from "@/components/SiteFooter";
+import Seo from "@/components/Seo";
 import { blogPosts } from "@/data/blogPosts";
 
 const Blog = () => (
   <div className="min-h-screen bg-background text-foreground">
+    <Seo
+      title="Blog — guides for analyzing YouTube comments"
+      description="Guides and tutorials on YouTube comment analysis: sentiment scoring, comparing videos, auto-replies and using comment data for content planning."
+      path="/blog"
+    />
     <main className="max-w-4xl mx-auto px-4 py-12">
       <nav className="mb-8 text-sm">
         <Link to="/" className="text-primary hover:underline">← Back to app</Link>

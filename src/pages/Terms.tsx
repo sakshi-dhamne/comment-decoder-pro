@@ -1,8 +1,14 @@
 import { Link } from "react-router-dom";
 import SiteFooter from "@/components/SiteFooter";
+import Seo from "@/components/Seo";
 
 const Terms = () => (
   <div className="min-h-screen bg-background text-foreground">
+    <Seo
+      title="Terms of Service — Comment Decoder Pro"
+      description="The terms for using Comment Decoder Pro: acceptable use, third-party content, AI-generated output, availability and liability."
+      path="/terms"
+    />
     <main className="max-w-3xl mx-auto px-4 py-12">
       <nav className="mb-8 text-sm">
         <Link to="/" className="text-primary hover:underline">← Back to app</Link>

@@ -1,8 +1,14 @@
 import { Link } from "react-router-dom";
 import SiteFooter from "@/components/SiteFooter";
+import Seo from "@/components/Seo";
 
 const About = () => (
   <div className="min-h-screen bg-background text-foreground">
+    <Seo
+      title="About Comment Decoder Pro — YouTube comment analysis"
+      description="Learn what Comment Decoder Pro does, who it's for, and how it turns public YouTube comments into sentiment, topic and trend insights."
+      path="/about"
+    />
     <main className="max-w-3xl mx-auto px-4 py-12">
       <nav className="mb-8 text-sm">
         <Link to="/" className="text-primary hover:underline">← Back to app</Link>
@@ -28,10 +34,16 @@ const About = () => (
         <li>Anyone who has stared at 2,000 comments and given up</li>
       </ul>
 
-      <h2 className="text-2xl font-semibold mt-10 mb-3">Contact</h2>
+      <h2 id="contact" className="text-2xl font-semibold mt-10 mb-3">Contact & upgrades</h2>
+      <p className="mb-4">
+        Found a bug, have a feature request, or want more than the free daily limit?
+        Use the feedback form on the home page, or email us and we'll set you up with a
+        Pro plan (unlimited analyses, deeper AI, no ads).
+      </p>
       <p>
-        Found a bug or have a feature request? Use the feedback form on the home page,
-        or reach out via the review link there. We read every submission.
+        <a href="mailto:hello@comment-decoder-pro.com?subject=Comment%20Decoder%20Pro%20—%20Upgrade%20request" className="text-primary hover:underline">
+          hello@comment-decoder-pro.com
+        </a>
       </p>
     </main>
     <SiteFooter />
