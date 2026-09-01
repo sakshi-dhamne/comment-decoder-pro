@@ -89,6 +89,7 @@ Deno.serve(async (req) => {
       ),
     });
   } catch (e) {
-    return json({ error: (e as Error).message }, 500);
+    console.error("admin-usage failed:", e);
+    return json({ error: "Failed to load usage data" }, 500);
   }
 });

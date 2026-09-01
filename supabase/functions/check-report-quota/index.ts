@@ -82,7 +82,8 @@ Deno.serve(async (req) => {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (e) {
-    return new Response(JSON.stringify({ error: (e as Error).message }), {
+    console.error("check-report-quota failed:", e);
+    return new Response(JSON.stringify({ error: "Failed to check quota" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
