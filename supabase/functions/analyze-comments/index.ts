@@ -8,10 +8,42 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 const BodySchema = z.object({
   videoUrl: z.string().min(1).max(500).optional(),
   videoUrls: z.array(z.string().min(1).max(500)).max(3).optional(),
-  sessionId: z.string().min(1).max(100).optional(),
+  sessionId: z.string().uuid(),
 }).refine(d => d.videoUrl || (d.videoUrls && d.videoUrls.length > 0), {
   message: "Provide videoUrl or videoUrls",
 });
+
+// Server-side daily analysis quota (authoritative — client-side flags cannot bypass it).
+const ANALYSIS_DAILY_LIMIT = 5;
+const QUOTA_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+async function checkAnalysisQuota(sb: any, sessionId: string, cost: number) {
+  try {
+    const since = new Date(Date.now() - QUOTA_WINDOW_MS).toISOString();
+    const { count, error } = await sb
+      .from("analysis_usage_log")
+      .select("id", { count: "exact", head: true })
+      .eq("session_id", sessionId)
+      .gte("created_at", since);
+    if (error) throw error;
+    const used = count ?? 0;
+    return { allowed: used + cost <= ANALYSIS_DAILY_LIMIT, used };
+  } catch (e) {
+    console.error("Analysis quota check failed:", e);
+    // Fail closed: these calls consume paid YouTube/AI quota.
+    return { allowed: false, used: ANALYSIS_DAILY_LIMIT };
+  }
+}
+
+async function recordAnalysisUsage(sb: any, sessionId: string, videoIds: (string | null)[]) {
+  try {
+    await sb
+      .from("analysis_usage_log")
+      .insert(videoIds.map((v) => ({ session_id: sessionId, video_id: v })));
+  } catch (e) {
+    console.error("Failed to record analysis usage:", e);
+  }
+}
 
 function extractVideoId(url: string): string | null {
   const patterns = [
@@ -803,12 +835,15 @@ Deno.serve(async (req) => {
     }
 
     const urls = parsed.data.videoUrls || [parsed.data.videoUrl!];
-    const sessionId = parsed.data.sessionId || "anonymous";
+    const sessionId = parsed.data.sessionId;
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const sb = createClient(supabaseUrl, serviceKey);
+
+    const quotaHeaders = { ...corsHeaders, "Content-Type": "application/json" };
 
     if (urls.length === 1) {
-      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-      const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-      const sb = createClient(supabaseUrl, serviceKey);
       const vidMatch = urls[0].match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([a-zA-Z0-9_-]{11})/);
       const videoId = vidMatch?.[1] || "unknown";
 
@@ -847,7 +882,20 @@ Deno.serve(async (req) => {
         });
       }
 
+      const quota = await checkAnalysisQuota(sb, sessionId, 1);
+      if (!quota.allowed) {
+        return new Response(
+          JSON.stringify({
+            error: "Daily analysis limit reached",
+            limit: ANALYSIS_DAILY_LIMIT,
+            used: quota.used,
+          }),
+          { status: 429, headers: quotaHeaders },
+        );
+      }
+
       const result = await analyzeVideo(urls[0], YOUTUBE_API_KEY, LOVABLE_API_KEY);
+      await recordAnalysisUsage(sb, sessionId, [videoId]);
 
       // Upsert report (unique on video_id + session_id)
       try {
@@ -871,6 +919,23 @@ Deno.serve(async (req) => {
     }
 
     // Multi-video comparison (parallel)
+    const multiQuota = await checkAnalysisQuota(sb, sessionId, urls.length);
+    if (!multiQuota.allowed) {
+      return new Response(
+        JSON.stringify({
+          error: "Daily analysis limit reached",
+          limit: ANALYSIS_DAILY_LIMIT,
+          used: multiQuota.used,
+        }),
+        { status: 429, headers: quotaHeaders },
+      );
+    }
+    await recordAnalysisUsage(
+      sb,
+      sessionId,
+      urls.map((u) => extractVideoId(u)),
+    );
+
     const results = await Promise.all(
       urls.map(async (url) => {
         try {

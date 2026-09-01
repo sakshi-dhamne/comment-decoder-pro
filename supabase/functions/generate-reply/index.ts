@@ -59,6 +59,7 @@ async function logReply(entry: {
   commentPreview?: string;
   errorMessage?: string;
 }) {
+  if (!entry.sessionId) return;
   try {
     const supabase = serviceClient();
     await supabase.from("ai_reply_log").insert({
