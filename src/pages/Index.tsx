@@ -183,8 +183,8 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background">
       <Seo
-        title="YouTube Comment Insights — Sentiment & Topic Analysis"
-        description="Analyze any YouTube video's comments for sentiment, topics, trends and content ideas. Free, fast and visual — no signup."
+        title="YouTube Comment Insights — AI Sentiment & Topic Analyzer"
+        description="Analyze YouTube comments for sentiment, topics and trends with AI. Get content ideas, auto-replies and shareable insights — free."
         path="/"
         jsonLd={{
           "@context": "https://schema.org",
