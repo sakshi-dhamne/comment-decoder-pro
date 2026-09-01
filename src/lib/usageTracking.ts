@@ -1,7 +1,7 @@
-// Local-first usage gating + ad analytics. Ready to migrate to backend later.
+// Client-side usage counters are for UI display only — the authoritative daily limits
+// are enforced server-side by the edge functions. Never trust these values for gating.
 const DAILY_KEY = "ci_daily_usage";
 const REPLY_DAILY_KEY = "ci_reply_daily_usage";
-const PREMIUM_KEY = "ci_is_premium";
 const AD_EVENTS_KEY = "ci_ad_events";
 
 export const FREE_DAILY_LIMIT = 5;
@@ -79,12 +79,12 @@ export function recordReplyGeneration(): void {
   writeUsage(REPLY_DAILY_KEY, u);
 }
 
+// Premium entitlement is NOT client-controlled. There is no client-side flag that can
+// unlock unlimited usage: quotas are enforced server-side in the edge functions
+// (analyze-comments / generate-reply / check-report-quota). Until a verified
+// server-side entitlement exists, everyone is on the free tier.
 export function isPremium(): boolean {
-  return localStorage.getItem(PREMIUM_KEY) === "true";
-}
-
-export function setPremium(v: boolean): void {
-  localStorage.setItem(PREMIUM_KEY, v ? "true" : "false");
+  return false;
 }
 
 export function resetDailyUsage(): void {
