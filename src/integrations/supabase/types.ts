@@ -86,6 +86,27 @@ export type Database = {
         }
         Relationships: []
       }
+      analysis_usage_log: {
+        Row: {
+          created_at: string
+          id: string
+          session_id: string
+          video_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          session_id: string
+          video_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          session_id?: string
+          video_id?: string | null
+        }
+        Relationships: []
+      }
       report_download_log: {
         Row: {
           blocked_reason: string | null
