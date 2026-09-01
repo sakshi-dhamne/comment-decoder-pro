@@ -10,10 +10,22 @@ export function downloadJSON(data: any, filename: string) {
   URL.revokeObjectURL(url);
 }
 
+// Neutralize spreadsheet formula injection: values starting with = + - @ (or tab/CR)
+// are interpreted as formulas by Excel/Sheets, so prefix them with a single quote.
+function neutralizeFormula(value: string): string {
+  return /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
+}
+
+function csvCell(v: any): string {
+  const s = v === null || v === undefined ? "" : String(v);
+  const safe = neutralizeFormula(s.replace(/"/g, '""').replace(/\r?\n/g, " "));
+  return `"${safe}"`;
+}
+
 export function downloadCSV(comments: any[], filename: string) {
   const header = "Author,Sentiment,Likes,Text\n";
   const rows = comments.map(c =>
-    `"${c.author.replace(/"/g, '""')}","${c.sentiment}",${c.likeCount},"${c.text.replace(/"/g, '""').replace(/\n/g, ' ')}"`
+    `${csvCell(c.author)},${csvCell(c.sentiment)},${Number(c.likeCount) || 0},${csvCell(c.text)}`
   ).join("\n");
   const blob = new Blob([header + rows], { type: "text/csv" });
   const url = URL.createObjectURL(blob);
@@ -25,8 +37,7 @@ export function downloadCSV(comments: any[], filename: string) {
 }
 
 function esc(v: any): string {
-  const s = v === null || v === undefined ? "" : String(v);
-  return `"${s.replace(/"/g, '""').replace(/\r?\n/g, " ")}"`;
+  return csvCell(v);
 }
 
 
@@ -51,13 +62,13 @@ export function downloadFullReportCSV(result: any, filename: string) {
   // Categories
   lines.push("SECTION,Categories");
   lines.push("Category,Count");
-  Object.entries(result.categories || {}).forEach(([k, v]) => lines.push(`${esc(k)},${v}`));
+  Object.entries(result.categories || {}).forEach(([k, v]) => lines.push(`${esc(k)},${esc(v)}`));
   lines.push("");
 
   // Topics
   lines.push("SECTION,Top Topics");
   lines.push("Topic,Count");
-  (result.topics || []).forEach((t: any) => lines.push(`${esc(t.topic)},${t.count}`));
+  (result.topics || []).forEach((t: any) => lines.push(`${esc(t.topic)},${esc(t.count)}`));
   lines.push("");
 
   // Comments + replies
