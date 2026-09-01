@@ -9,7 +9,7 @@ const BodySchema = z.object({
   commentText: z.string().min(1).max(2000),
   tone: z.enum(["friendly", "professional", "witty"]),
   videoTitle: z.string().max(200).optional(),
-  sessionId: z.string().max(128).optional(),
+  sessionId: z.string().uuid(),
   videoId: z.string().max(32).optional(),
 });
 
@@ -19,8 +19,39 @@ const jsonResponse = (body: unknown, status = 200) =>
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 
+// Server-side daily quota (authoritative — client-side flags cannot bypass it).
+const REPLY_DAILY_LIMIT = 3;
+const QUOTA_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+function serviceClient() {
+  return createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+  );
+}
+
+async function checkReplyQuota(sessionId: string): Promise<{ allowed: boolean; used: number }> {
+  try {
+    const since = new Date(Date.now() - QUOTA_WINDOW_MS).toISOString();
+    const { count, error } = await serviceClient()
+      .from("ai_reply_log")
+      .select("id", { count: "exact", head: true })
+      .eq("session_id", sessionId)
+      .eq("status", "success")
+      .eq("fallback", false)
+      .gte("created_at", since);
+    if (error) throw error;
+    const used = count ?? 0;
+    return { allowed: used < REPLY_DAILY_LIMIT, used };
+  } catch (e) {
+    console.error("Reply quota check failed:", e);
+    // Fail closed on the paid AI path.
+    return { allowed: false, used: REPLY_DAILY_LIMIT };
+  }
+}
+
 async function logReply(entry: {
-  sessionId?: string;
+  sessionId: string;
   videoId?: string;
   tone: string;
   status: "success" | "fallback" | "error";
@@ -30,10 +61,7 @@ async function logReply(entry: {
 }) {
   if (!entry.sessionId) return;
   try {
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
+    const supabase = serviceClient();
     await supabase.from("ai_reply_log").insert({
       session_id: entry.sessionId,
       video_id: entry.videoId ?? null,
@@ -72,7 +100,7 @@ Deno.serve(async (req) => {
   }
 
   let parsedTone: "friendly" | "professional" | "witty" = "friendly";
-  let sessionId: string | undefined;
+  let sessionId = "";
   let videoId: string | undefined;
   let commentPreview: string | undefined;
 
@@ -91,6 +119,18 @@ Deno.serve(async (req) => {
     sessionId = parsed.data.sessionId;
     videoId = parsed.data.videoId;
     commentPreview = commentText;
+
+    const quota = await checkReplyQuota(sessionId);
+    if (!quota.allowed) {
+      return jsonResponse(
+        {
+          error: "Daily AI reply limit reached",
+          limit: REPLY_DAILY_LIMIT,
+          used: quota.used,
+        },
+        429,
+      );
+    }
 
     if (!LOVABLE_API_KEY) {
       await logReply({ sessionId, videoId, tone, status: "fallback", fallback: true, commentPreview, errorMessage: "AI not configured" });
